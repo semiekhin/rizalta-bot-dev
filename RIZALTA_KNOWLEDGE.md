@@ -239,3 +239,48 @@ tail -50 /var/log/rizalta-bot.log
 - `docs/ddu.pdf` — ДДУ
 - `docs/arenda.pdf` — Аренда
 - Обработчик: `handlers/docs.py`
+
+---
+
+## 🔗 ПОЛНЫЙ СПИСОК ССЫЛОК ДЛЯ НОВОГО ЧАТА (копировать целиком)
+```
+продолжаем RIZALTA BOT
+
+GitHub репо:
+https://github.com/semiekhin/rizalta-bot
+
+Документация:
+https://raw.githubusercontent.com/semiekhin/rizalta-bot/main/RIZALTA_PROJECT.md
+https://raw.githubusercontent.com/semiekhin/rizalta-bot/main/RIZALTA_CURRENT_TASK.md
+https://raw.githubusercontent.com/semiekhin/rizalta-bot/main/RIZALTA_KNOWLEDGE.md
+
+Главный файл:
+https://raw.githubusercontent.com/semiekhin/rizalta-bot/main/app.py
+
+Handlers:
+https://raw.githubusercontent.com/semiekhin/rizalta-bot/main/handlers/__init__.py
+https://raw.githubusercontent.com/semiekhin/rizalta-bot/main/handlers/kp.py
+https://raw.githubusercontent.com/semiekhin/rizalta-bot/main/handlers/calc_dynamic.py
+https://raw.githubusercontent.com/semiekhin/rizalta-bot/main/handlers/docs.py
+https://raw.githubusercontent.com/semiekhin/rizalta-bot/main/handlers/ai_chat.py
+https://raw.githubusercontent.com/semiekhin/rizalta-bot/main/handlers/menu.py
+https://raw.githubusercontent.com/semiekhin/rizalta-bot/main/handlers/booking.py
+https://raw.githubusercontent.com/semiekhin/rizalta-bot/main/handlers/units.py
+
+Services:
+https://raw.githubusercontent.com/semiekhin/rizalta-bot/main/services/__init__.py
+https://raw.githubusercontent.com/semiekhin/rizalta-bot/main/services/kp_search.py
+https://raw.githubusercontent.com/semiekhin/rizalta-bot/main/services/ai_chat.py
+https://raw.githubusercontent.com/semiekhin/rizalta-bot/main/services/telegram.py
+https://raw.githubusercontent.com/semiekhin/rizalta-bot/main/services/calculations.py
+https://raw.githubusercontent.com/semiekhin/rizalta-bot/main/services/data_loader.py
+https://raw.githubusercontent.com/semiekhin/rizalta-bot/main/services/notifications.py
+
+Config & Models:
+https://raw.githubusercontent.com/semiekhin/rizalta-bot/main/config/settings.py
+https://raw.githubusercontent.com/semiekhin/rizalta-bot/main/models/state.py
+
+Data:
+https://raw.githubusercontent.com/semiekhin/rizalta-bot/main/data/units.json
+https://raw.githubusercontent.com/semiekhin/rizalta-bot/main/data/rizalta_finance.json
+```
