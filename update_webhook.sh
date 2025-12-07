@@ -1,7 +1,23 @@
 #!/bin/bash
+# Ждём пока туннель запустится и обновляем webhook
+
 sleep 10
-TUNNEL_URL=$(journalctl -u cloudflared-quick -n 50 --no-pager | grep -o 'https://[a-z-]*\.trycloudflare\.com' | tail -1)
-if [ -n "$TUNNEL_URL" ]; then
-    curl -s "https://api.telegram.org/bot8343378629:AAHHacgXmIVhShhtPtdEooKEkV34ZD1t59s/setWebhook?url=${TUNNEL_URL}/telegram/webhook"
-    echo "$(date): RIZALTA webhook updated to: $TUNNEL_URL" >> /var/log/rizalta-webhook.log
+
+# Получаем новый URL туннеля
+TUNNEL_URL=$(journalctl -u cloudflare-rizalta --no-pager -n 50 | grep -oP 'https://[a-z0-9-]+\.trycloudflare\.com' | tail -1)
+
+if [ -z "$TUNNEL_URL" ]; then
+    echo "❌ Не удалось получить URL туннеля"
+    exit 1
 fi
+
+echo "🔗 Новый URL: $TUNNEL_URL"
+
+# Загружаем токен
+source /opt/bot/.env
+
+# Обновляем webhook
+curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook?url=${TUNNEL_URL}/telegram/webhook"
+
+echo ""
+echo "✅ Webhook обновлён!"

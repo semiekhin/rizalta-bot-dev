@@ -20,10 +20,12 @@ from config.settings import BASE_DIR
 
 DB_PATH = os.path.join(BASE_DIR, "properties.db")
 
+# Сколько кнопок показывать по умолчанию
+DEFAULT_DISPLAY_LIMIT = 8
+
 
 def find_kp_by_area(area: float) -> str:
     """Ищет КП по площади."""
-    import os, re
     kp_dir = os.path.join(BASE_DIR, "kp_all")
     if not os.path.exists(kp_dir):
         return None
@@ -98,71 +100,6 @@ def get_lots_by_budget_range(min_budget: int, max_budget: int) -> List[Dict[str,
         key=lambda x: (x["price"], x["area"])
     )
 
-def get_kp_from_files() -> List[Dict[str, Any]]:
-    """Получает список КП из файлов, добавляет цены из базы."""
-    import re
-    kp_list = []
-    kp_dir = os.path.join(BASE_DIR, "kp_all")
-    
-    if not os.path.exists(kp_dir):
-        return []
-    
-    for f in os.listdir(kp_dir):
-        if not f.endswith(".jpg"):
-            continue
-        match = re.match(r"kp_([\d.]+)m_\w+_(.+)\.jpg", f)
-        if match:
-            area = float(match.group(1))
-            code = match.group(2)
-            kp_list.append({
-                "code": code, 
-                "area": area, 
-                "filepath": os.path.join(kp_dir, f)
-            })
-    
-    # Добавляем цены из базы
-    if os.path.exists(DB_PATH):
-        conn = sqlite3.connect(DB_PATH)
-        cur = conn.cursor()
-        for kp in kp_list:
-            cur.execute("""
-                SELECT price_rub, building FROM units 
-                WHERE code = ? AND ABS(area_m2 - ?) < 0.5
-            """, (kp["code"], kp["area"]))
-            row = cur.fetchone()
-            if row:
-                kp["price"] = row[0]
-                kp["building"] = row[1]
-            else:
-                kp["price"] = 0
-                kp["building"] = 0
-        conn.close()
-    
-    return [k for k in kp_list if k["price"] > 0]
-
-
-def get_lots_by_area_range(min_area: float, max_area: float) -> List[Dict[str, Any]]:
-    """Получает лоты по диапазону площади — ТОЛЬКО с КП."""
-    all_kp = get_kp_from_files()
-    return sorted(
-        [k for k in all_kp if min_area <= k["area"] <= max_area],
-        key=lambda x: (x["area"], x["price"])
-    )
-
-
-def get_lots_by_budget_range(min_budget: int, max_budget: int) -> List[Dict[str, Any]]:
-    """Получает лоты по диапазону бюджета — ТОЛЬКО с КП."""
-    all_kp = get_kp_from_files()
-    return sorted(
-        [k for k in all_kp if min_budget <= k["price"] <= max_budget],
-        key=lambda x: (x["price"], x["area"])
-    )
-
-
-
-
-
-
 
 def normalize_code(code: str) -> str:
     """Нормализует код лота."""
@@ -235,7 +172,7 @@ async def handle_kp_by_budget_menu(chat_id: int):
 
 
 async def handle_kp_area_range(chat_id: int, min_area: float, max_area: float):
-    """Показывает лоты по диапазону площади."""
+    """Показывает лоты по диапазону площади (первые 8)."""
     lots = get_lots_by_area_range(min_area, max_area)
     
     if not lots:
@@ -246,10 +183,11 @@ async def handle_kp_area_range(chat_id: int, min_area: float, max_area: float):
         )
         return
     
-    display_lots = lots[:8]
+    # Показываем только первые 8
+    display_lots = lots[:DEFAULT_DISPLAY_LIMIT]
     
     area_text = f"{int(min_area)}-{int(max_area)}" if max_area < 900 else f"{int(min_area)}+"
-    text = f"📋 <b>КП на {area_text} м²</b> ({len(lots)} лотов):\n"
+    text = f"📋 <b>КП на {area_text} м²</b> ({len(lots)} шт.):\n"
     
     inline_buttons = []
     
@@ -257,8 +195,12 @@ async def handle_kp_area_range(chat_id: int, min_area: float, max_area: float):
         btn_text = f"{lot['code']} — {lot['area']} м² — {format_price_short(lot['price'])}"
         inline_buttons.append([{"text": btn_text, "callback_data": f"kp_send_{int(lot['area']*10)}"}])
     
-    if len(lots) > 1:
-        inline_buttons.append([{"text": f"📤 Отправить все ({len(lots)} шт.)", "callback_data": f"kp_all_area_{int(min_area)}_{int(max_area)}"}])
+    # Если есть ещё лоты — показываем кнопку "Показать все"
+    if len(lots) > DEFAULT_DISPLAY_LIMIT:
+        inline_buttons.append([{
+            "text": f"📋 Показать все ({len(lots)} шт.)", 
+            "callback_data": f"kp_show_area_{int(min_area)}_{int(max_area)}"
+        }])
     
     inline_buttons.append([{"text": "🔙 Назад", "callback_data": "kp_by_area"}])
     
@@ -266,7 +208,7 @@ async def handle_kp_area_range(chat_id: int, min_area: float, max_area: float):
 
 
 async def handle_kp_budget_range(chat_id: int, min_budget: int, max_budget: int):
-    """Показывает лоты по диапазону бюджета."""
+    """Показывает лоты по диапазону бюджета (первые 8)."""
     lots = get_lots_by_budget_range(min_budget * 1_000_000, max_budget * 1_000_000)
     
     if not lots:
@@ -277,10 +219,11 @@ async def handle_kp_budget_range(chat_id: int, min_budget: int, max_budget: int)
         )
         return
     
-    display_lots = lots[:8]
+    # Показываем только первые 8
+    display_lots = lots[:DEFAULT_DISPLAY_LIMIT]
     
     budget_text = f"{min_budget}-{max_budget}" if max_budget < 900 else f"{min_budget}+"
-    text = f"📋 <b>КП на {budget_text} млн</b> ({len(lots)} лотов):\n"
+    text = f"📋 <b>КП на {budget_text} млн</b> ({len(lots)} шт.):\n"
     
     inline_buttons = []
     
@@ -288,10 +231,60 @@ async def handle_kp_budget_range(chat_id: int, min_budget: int, max_budget: int)
         btn_text = f"{lot['code']} — {lot['area']} м² — {format_price_short(lot['price'])}"
         inline_buttons.append([{"text": btn_text, "callback_data": f"kp_send_{int(lot['area']*10)}"}])
     
-    if len(lots) > 1:
-        inline_buttons.append([{"text": f"📤 Отправить все ({len(lots)} шт.)", "callback_data": f"kp_all_budget_{min_budget}_{max_budget}"}])
+    # Если есть ещё лоты — показываем кнопку "Показать все"
+    if len(lots) > DEFAULT_DISPLAY_LIMIT:
+        inline_buttons.append([{
+            "text": f"📋 Показать все ({len(lots)} шт.)", 
+            "callback_data": f"kp_show_budget_{min_budget}_{max_budget}"
+        }])
     
     inline_buttons.append([{"text": "🔙 Назад", "callback_data": "kp_by_budget"}])
+    
+    await send_message_inline(chat_id, text, inline_buttons)
+
+
+async def handle_kp_show_all_area(chat_id: int, min_area: float, max_area: float):
+    """Показывает ВСЕ лоты по диапазону площади."""
+    lots = get_lots_by_area_range(min_area, max_area)
+    
+    if not lots:
+        await send_message(chat_id, "❌ КП не найдены.")
+        return
+    
+    area_text = f"{int(min_area)}-{int(max_area)}" if max_area < 900 else f"{int(min_area)}+"
+    text = f"📋 <b>Все КП на {area_text} м²</b> ({len(lots)} шт.):\n"
+    
+    inline_buttons = []
+    
+    # Показываем ВСЕ лоты
+    for lot in lots:
+        btn_text = f"{lot['code']} — {lot['area']} м² — {format_price_short(lot['price'])}"
+        inline_buttons.append([{"text": btn_text, "callback_data": f"kp_send_{int(lot['area']*10)}"}])
+    
+    inline_buttons.append([{"text": "🔙 Назад", "callback_data": f"kp_area_{int(min_area)}_{int(max_area)}"}])
+    
+    await send_message_inline(chat_id, text, inline_buttons)
+
+
+async def handle_kp_show_all_budget(chat_id: int, min_budget: int, max_budget: int):
+    """Показывает ВСЕ лоты по диапазону бюджета."""
+    lots = get_lots_by_budget_range(min_budget * 1_000_000, max_budget * 1_000_000)
+    
+    if not lots:
+        await send_message(chat_id, "❌ КП не найдены.")
+        return
+    
+    budget_text = f"{min_budget}-{max_budget}" if max_budget < 900 else f"{min_budget}+"
+    text = f"📋 <b>Все КП на {budget_text} млн</b> ({len(lots)} шт.):\n"
+    
+    inline_buttons = []
+    
+    # Показываем ВСЕ лоты
+    for lot in lots:
+        btn_text = f"{lot['code']} — {lot['area']} м² — {format_price_short(lot['price'])}"
+        inline_buttons.append([{"text": btn_text, "callback_data": f"kp_send_{int(lot['area']*10)}"}])
+    
+    inline_buttons.append([{"text": "🔙 Назад", "callback_data": f"kp_budget_{min_budget}_{max_budget}"}])
     
     await send_message_inline(chat_id, text, inline_buttons)
 
@@ -314,62 +307,6 @@ async def handle_kp_send_one(chat_id: int, unit_code: str = "", area: float = 0)
         await send_message_inline(chat_id, "Хотите посмотреть другие варианты?", inline_buttons)
     else:
         await send_message(chat_id, f"❌ КП для лота {unit_code} не найдено.")
-
-
-async def handle_kp_send_all_area(chat_id: int, min_area: float, max_area: float):
-    """Отправляет все КП по диапазону площади."""
-    lots = get_lots_by_area_range(min_area, max_area)
-    
-    if not lots:
-        await send_message(chat_id, "❌ КП не найдены.")
-        return
-    
-    filepaths = [lot["filepath"] for lot in lots]
-    area_text = f"{int(min_area)}-{int(max_area)}" if max_area < 900 else f"{int(min_area)}+"
-    
-    if len(filepaths) <= 10:
-        await send_media_group(chat_id, filepaths, f"📋 КП на {area_text} м² ({len(filepaths)} шт.)")
-    else:
-        for i in range(0, len(filepaths), 10):
-            batch = filepaths[i:i+10]
-            caption = f"📋 КП на {area_text} м² (часть {i//10 + 1})" if i > 0 else f"📋 КП на {area_text} м² ({len(filepaths)} шт.)"
-            await send_media_group(chat_id, batch, caption)
-    
-    inline_buttons = [
-        [
-            {"text": "📋 Ещё КП", "callback_data": "kp_menu"},
-            {"text": "🔥 Записаться на показ", "callback_data": "online_show"}
-        ]
-    ]
-    await send_message_inline(chat_id, "Хотите посмотреть другие варианты?", inline_buttons)
-
-
-async def handle_kp_send_all_budget(chat_id: int, min_budget: int, max_budget: int):
-    """Отправляет все КП по диапазону бюджета."""
-    lots = get_lots_by_budget_range(min_budget * 1_000_000, max_budget * 1_000_000)
-    
-    if not lots:
-        await send_message(chat_id, "❌ КП не найдены.")
-        return
-    
-    filepaths = [lot["filepath"] for lot in lots]
-    budget_text = f"{min_budget}-{max_budget}" if max_budget < 900 else f"{min_budget}+"
-    
-    if len(filepaths) <= 10:
-        await send_media_group(chat_id, filepaths, f"📋 КП на {budget_text} млн ({len(filepaths)} шт.)")
-    else:
-        for i in range(0, len(filepaths), 10):
-            batch = filepaths[i:i+10]
-            caption = f"📋 КП на {budget_text} млн (часть {i//10 + 1})" if i > 0 else f"📋 КП на {budget_text} млн ({len(filepaths)} шт.)"
-            await send_media_group(chat_id, batch, caption)
-    
-    inline_buttons = [
-        [
-            {"text": "📋 Ещё КП", "callback_data": "kp_menu"},
-            {"text": "🔥 Записаться на показ", "callback_data": "online_show"}
-        ]
-    ]
-    await send_message_inline(chat_id, "Хотите посмотреть другие варианты?", inline_buttons)
 
 
 async def handle_kp_request(chat_id: int, text: str):

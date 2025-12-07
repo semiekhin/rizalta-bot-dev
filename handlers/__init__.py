@@ -56,8 +56,8 @@ from .kp import (
     handle_kp_area_range,
     handle_kp_budget_range,
     handle_kp_send_one,
-    handle_kp_send_all_area,
-    handle_kp_send_all_budget,
+    handle_kp_show_all_area,
+    handle_kp_show_all_budget,
 )
 
 # Динамические расчёты для всех лотов
@@ -78,9 +78,15 @@ from .calc_dynamic import (
 )
 
 # Документы
-from handlers.docs import (
+from .docs import (
     handle_documents_menu,
     handle_send_ddu,
     handle_send_arenda,
     handle_send_all_docs,
+)
+
+# Медиа-материалы
+from .media import (
+    handle_media_menu,
+    handle_send_presentation,
 )

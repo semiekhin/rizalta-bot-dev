@@ -135,6 +135,73 @@ AVAILABLE_FUNCTIONS = [
                 "required": []
             }
         }
+    },
+    # === НОВЫЕ ФУНКЦИИ ===
+    {
+        "type": "function",
+        "function": {
+            "name": "send_presentation",
+            "description": "Отправить презентацию проекта RIZALTA в PDF формате. Вызывай когда пользователь просит презентацию, презу, слайды, материалы о проекте, хочет показать клиенту проект.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "open_fixation",
+            "description": "Открыть форму фиксации клиента. Вызывай когда пользователь хочет зафиксировать клиента, закрепить клиента за собой, оформить фиксацию, привязать клиента.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "open_shahmatka",
+            "description": "Показать шахматку с доступными лотами. Вызывай когда пользователь спрашивает про наличие, свободные лоты, что есть в продаже, какие номера доступны, хочет посмотреть шахматку.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "send_documents",
+            "description": "Отправить договоры (ДДУ, договор аренды). Вызывай когда пользователь просит договор, ДДУ, документы, договор аренды, юридические документы.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "doc_type": {
+                        "type": "string",
+                        "enum": ["ddu", "arenda", "all"],
+                        "description": "Тип документа: ddu = договор ДДУ, arenda = договор аренды, all = оба документа"
+                    }
+                },
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "show_media",
+            "description": "Показать медиа-материалы (видео, фото, ролики о проекте). Вызывай когда пользователь просит видео, ролики, медиа, фото объекта, визуализации.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
     }
 ]
 

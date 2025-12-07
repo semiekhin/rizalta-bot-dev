@@ -9,6 +9,7 @@ RIZALTA Telegram Bot
 - handlers/   - обработчики событий
 """
 
+import re
 from fastapi import FastAPI, Request
 from typing import Dict, Any, List
 
@@ -17,6 +18,8 @@ from config.settings import (
     TELEGRAM_BOT_TOKEN,
     MAIN_MENU_BUTTONS,
     MAIN_MENU_TRIGGER_TEXTS,
+    LINK_FIXATION,
+    LINK_SHAHMATKA,
 )
 
 # Состояния
@@ -63,6 +66,7 @@ from handlers import (
     handle_choose_unit_for_roi,
     handle_choose_unit_for_finance,
     handle_choose_unit_for_layout,
+    handle_main_menu,
     
     # Юниты
     handle_base_roi,
@@ -87,10 +91,91 @@ from handlers import (
     # КП
     handle_kp_menu,
     handle_kp_request,
+    
+    # Медиа
+    handle_media_menu,
+    handle_send_presentation,
 )
 
 
 app = FastAPI(title="RIZALTA Bot")
+
+
+# ====== Текстовые триггеры для контекстного поиска ======
+
+# Паттерны для презентации
+PRESENTATION_PATTERNS = [
+    r"презентаци",
+    r"скачать презент",
+    r"отправь презент",
+    r"пришли презент",
+    r"дай презент",
+    r"покажи презент",
+]
+
+# Паттерны для фиксации клиента
+FIXATION_PATTERNS = [
+    r"фиксаци",
+    r"зафиксир",
+    r"закрепи",
+    r"закрепить клиент",
+]
+
+# Паттерны для шахматки
+SHAHMATKA_PATTERNS = [
+    r"шахматк",
+    r"шахмат",
+    r"наличие",
+    r"свободные лоты",
+    r"какие лоты",
+    r"что свободно",
+    r"что есть в наличии",
+]
+
+# Паттерны для медиа
+MEDIA_PATTERNS = [
+    r"медиа",
+    r"материал",
+    r"видео",
+    r"ролик",
+]
+
+# Паттерны для записи на показ
+BOOKING_PATTERNS = [
+    r"записать",
+    r"запиши",
+    r"показ",
+    r"созвон",
+    r"встреч",
+    r"консультаци",
+    r"связаться",
+    r"позвони",
+    r"перезвони",
+]
+
+# Паттерны для договоров
+DOCS_PATTERNS = [
+    r"договор",
+    r"дду",
+    r"аренд",
+    r"документ",
+]
+
+# Паттерны для КП
+KP_PATTERNS = [
+    r"коммерческ",
+    r"\bкп\b",
+    r"предложени",
+]
+
+
+def match_patterns(text: str, patterns: list) -> bool:
+    """Проверяет совпадение текста с паттернами."""
+    text_lower = text.lower()
+    for pattern in patterns:
+        if re.search(pattern, text_lower):
+            return True
+    return False
 
 
 # ====== Health check ======
@@ -135,6 +220,12 @@ async def telegram_webhook(request: Request):
         await handle_contact_shared(chat_id, contact_data)
         return {"ok": True}
     
+    # Обработка голосового сообщения
+    voice = msg.get("voice")
+    if voice:
+        await process_voice_message(chat_id, voice, msg.get("from", {}))
+        return {"ok": True}
+    
     if not text:
         return {"ok": True}
     
@@ -170,13 +261,15 @@ async def process_callback(callback: Dict[str, Any]):
         await handle_select_lot(chat_id)
     
     elif data == "call_manager" or data == "online_show":
-        await handle_online_show_start(chat_id)
+        from handlers.booking_calendar import handle_booking_start
+        await handle_booking_start(chat_id)
     
     elif data == "calculate_roi":
         await handle_choose_unit_for_roi(chat_id)
     
     elif data == "get_layouts":
-        from handlers.docs import handle_documents_menu; await handle_documents_menu(chat_id)
+        from handlers.docs import handle_documents_menu
+        await handle_documents_menu(chat_id)
     
     elif data.startswith("roi_"):
         unit_code = data[4:]
@@ -189,6 +282,19 @@ async def process_callback(callback: Dict[str, Any]):
     elif data.startswith("layout_"):
         unit_code = data[7:]
         await handle_layouts(chat_id, unit_code=unit_code)
+    
+    # ===== Медиа =====
+    
+    elif data == "media_menu":
+        await handle_media_menu(chat_id)
+    
+    elif data == "media_presentation":
+        await handle_send_presentation(chat_id)
+    
+    elif data == "back_to_menu":
+        await handle_main_menu(chat_id)
+    
+    # ===== КП =====
     
     elif data == "kp_menu":
         await handle_kp_menu(chat_id)
@@ -225,20 +331,19 @@ async def process_callback(callback: Dict[str, Any]):
         area = int(area_str) / 10.0 if area_str.isdigit() else 0
         await handle_kp_send_one(chat_id, area=area)
     
-    elif data.startswith("kp_all_area_"):
-        # kp_all_area_22_25 -> отправить все по площади
-        from handlers.kp import handle_kp_send_all_area
-        parts = data.replace("kp_all_area_", "").split("_")
+    elif data.startswith("kp_show_area_"):
+        # kp_show_area_22_30 -> показать все лоты по площади
+        from handlers.kp import handle_kp_show_all_area
+        parts = data.replace("kp_show_area_", "").split("_")
         min_area, max_area = float(parts[0]), float(parts[1])
-        await handle_kp_send_all_area(chat_id, min_area, max_area)
+        await handle_kp_show_all_area(chat_id, min_area, max_area)
     
-    elif data.startswith("kp_all_budget_"):
-        # kp_all_budget_15_18 -> отправить все по бюджету
-        from handlers.kp import handle_kp_send_all_budget
-        parts = data.replace("kp_all_budget_", "").split("_")
+    elif data.startswith("kp_show_budget_"):
+        # kp_show_budget_15_18 -> показать все лоты по бюджету
+        from handlers.kp import handle_kp_show_all_budget
+        parts = data.replace("kp_show_budget_", "").split("_")
         min_budget, max_budget = int(parts[0]), int(parts[1])
-        await handle_kp_send_all_budget(chat_id, min_budget, max_budget)
-
+        await handle_kp_show_all_budget(chat_id, min_budget, max_budget)
 
     # ===== Документы =====
 
@@ -257,6 +362,7 @@ async def process_callback(callback: Dict[str, Any]):
     elif data == "doc_all":
         from handlers.docs import handle_send_all_docs
         await handle_send_all_docs(chat_id)
+
     # ===== Динамические расчёты =====
 
     elif data == "calc_main_menu":
@@ -304,10 +410,47 @@ async def process_callback(callback: Dict[str, Any]):
         area_str = data.replace("calc_roi_lot_", "")
         area = int(area_str) / 10.0 if area_str.isdigit() else 0
         await handle_calc_roi_lot(chat_id, area)
+
     elif data.startswith("calc_finance_lot_"):
         area_str = data.replace("calc_finance_lot_", "")
         area = int(area_str) / 10.0 if area_str.isdigit() else 0
         await handle_calc_finance_lot(chat_id, area)
+
+    # ===== Календарь бронирования =====
+
+    elif data == "booking_calendar":
+        from handlers.booking_calendar import handle_booking_start
+        await handle_booking_start(chat_id)
+
+    elif data.startswith("book_spec_"):
+        from handlers.booking_calendar import handle_select_specialist
+        spec_id = int(data.replace("book_spec_", ""))
+        await handle_select_specialist(chat_id, spec_id)
+
+    elif data == "book_back_specialist":
+        from handlers.booking_calendar import handle_booking_start
+        await handle_booking_start(chat_id)
+
+    elif data.startswith("book_date_"):
+        from handlers.booking_calendar import handle_select_date
+        date_str = data.replace("book_date_", "")
+        await handle_select_date(chat_id, date_str)
+
+    elif data.startswith("book_time_"):
+        from handlers.booking_calendar import handle_select_time
+        time_str = data.replace("book_time_", "")
+        await handle_select_time(chat_id, time_str, username)
+
+    elif data.startswith("book_confirm_"):
+        from handlers.booking_calendar import handle_confirm_booking
+        booking_id = int(data.replace("book_confirm_", ""))
+        await handle_confirm_booking(chat_id, booking_id)
+
+    elif data.startswith("book_decline_"):
+        from handlers.booking_calendar import handle_decline_booking
+        booking_id = int(data.replace("book_decline_", ""))
+        await handle_decline_booking(chat_id, booking_id)
+
 
 async def process_message(chat_id: int, text: str, user_info: Dict[str, Any]):
     """Главный роутер текстовых сообщений."""
@@ -407,11 +550,41 @@ async def process_message(chat_id: int, text: str, user_info: Dict[str, Any]):
         return
     
     if "🔥 Записаться на онлайн-показ" in text or "📅 Записаться на онлайн показ" in text:
-        await handle_online_show_start(chat_id)
+        from handlers.booking_calendar import handle_booking_start
+        await handle_booking_start(chat_id)
         return
     
     if "📄 Договоры" in text:
-        from handlers.docs import handle_documents_menu; await handle_documents_menu(chat_id)
+        from handlers.docs import handle_documents_menu
+        await handle_documents_menu(chat_id)
+        return
+    
+    # ===== Кнопки с внешними ссылками =====
+    
+    if "📌 Фиксация клиента" in text:
+        inline_buttons = [
+            [{"text": "🔗 Открыть форму фиксации", "url": LINK_FIXATION}]
+        ]
+        await send_message_inline(
+            chat_id,
+            "📌 <b>Фиксация клиента</b>\n\nНажмите кнопку ниже, чтобы открыть форму фиксации:",
+            inline_buttons
+        )
+        return
+    
+    if "🏠 Шахматка" in text:
+        inline_buttons = [
+            [{"text": "🔗 Открыть шахматку", "url": LINK_SHAHMATKA}]
+        ]
+        await send_message_inline(
+            chat_id,
+            "🏠 <b>Шахматка</b>\n\nНажмите кнопку ниже, чтобы открыть шахматку с актуальными лотами:",
+            inline_buttons
+        )
+        return
+    
+    if "🎬 Медиа" in text:
+        await handle_media_menu(chat_id)
         return
     
     # ===== Подменю "О проекте" =====
@@ -438,6 +611,12 @@ async def process_message(chat_id: int, text: str, user_info: Dict[str, Any]):
         await handle_choose_unit_for_finance(chat_id)
         return
     
+    # ===== Подменю "Медиа" =====
+    
+    if "📊 Презентация" in text:
+        await handle_send_presentation(chat_id)
+        return
+    
     # ===== Выбор юнита по кнопкам =====
     
     if text in ["A209", "B210", "A305"]:
@@ -458,9 +637,121 @@ async def process_message(chat_id: int, text: str, user_info: Dict[str, Any]):
         # Без состояния — игнорируем
         return
     
+    # ===== Контекстный поиск по тексту =====
+    
+    # Презентация
+    if match_patterns(text, PRESENTATION_PATTERNS):
+        inline_buttons = [
+            [{"text": "📥 Скачать презентацию", "callback_data": "media_presentation"}],
+            [{"text": "🔙 В меню", "callback_data": "back_to_menu"}]
+        ]
+        await send_message_inline(
+            chat_id,
+            "📊 <b>Презентация проекта RIZALTA</b>\n\nГотов отправить презентацию в PDF формате.",
+            inline_buttons
+        )
+        return
+    
+    # Фиксация клиента
+    if match_patterns(text, FIXATION_PATTERNS):
+        inline_buttons = [
+            [{"text": "📌 Открыть форму фиксации", "url": LINK_FIXATION}],
+            [{"text": "🔙 В меню", "callback_data": "back_to_menu"}]
+        ]
+        await send_message_inline(
+            chat_id,
+            "📌 <b>Фиксация клиента</b>\n\nДля фиксации клиента нажмите кнопку ниже:",
+            inline_buttons
+        )
+        return
+    
+    # Шахматка
+    if match_patterns(text, SHAHMATKA_PATTERNS):
+        inline_buttons = [
+            [{"text": "🏠 Открыть шахматку", "url": LINK_SHAHMATKA}],
+            [{"text": "🔙 В меню", "callback_data": "back_to_menu"}]
+        ]
+        await send_message_inline(
+            chat_id,
+            "🏠 <b>Шахматка</b>\n\nАктуальная шахматка с доступными лотами:",
+            inline_buttons
+        )
+        return
+    
+    # Медиа
+    if match_patterns(text, MEDIA_PATTERNS):
+        await handle_media_menu(chat_id)
+        return
+    
+    # Запись на показ
+    if match_patterns(text, BOOKING_PATTERNS):
+        inline_buttons = [
+            [{"text": "🔥 Записаться на показ", "callback_data": "online_show"}],
+            [{"text": "🔙 В меню", "callback_data": "back_to_menu"}]
+        ]
+        await send_message_inline(
+            chat_id,
+            "📅 <b>Запись на онлайн-показ</b>\n\nХотите записаться на онлайн-показ с менеджером проекта?",
+            inline_buttons
+        )
+        return
+    
+    # Договоры
+    if match_patterns(text, DOCS_PATTERNS):
+        from handlers.docs import handle_documents_menu
+        await handle_documents_menu(chat_id)
+        return
+    
+    # КП
+    if match_patterns(text, KP_PATTERNS):
+        inline_buttons = [
+            [{"text": "📋 Открыть меню КП", "callback_data": "kp_menu"}],
+            [{"text": "🔙 В меню", "callback_data": "back_to_menu"}]
+        ]
+        await send_message_inline(
+            chat_id,
+            "📋 <b>Коммерческие предложения</b>\n\nМогу отправить КП по площади или бюджету:",
+            inline_buttons
+        )
+        return
+    
     # ===== Свободный текст → AI =====
     
     await handle_free_text(chat_id, text)
+
+
+async def process_voice_message(chat_id: int, voice: Dict[str, Any], user_info: Dict[str, Any]):
+    """Обработка голосового сообщения через Whisper API."""
+    from services.telegram import download_file
+    from services.speech import transcribe_voice
+    
+    file_id = voice.get("file_id")
+    if not file_id:
+        return
+    
+    # Уведомляем пользователя
+    await send_message(chat_id, "🎤 Распознаю голосовое сообщение...")
+    
+    # Скачиваем файл
+    save_path = f"/tmp/voice_{chat_id}_{file_id}.ogg"
+    downloaded = await download_file(file_id, save_path)
+    
+    if not downloaded:
+        await send_message(chat_id, "❌ Не удалось обработать голосовое сообщение. Попробуйте ещё раз.")
+        return
+    
+    # Распознаём речь
+    text = transcribe_voice(save_path)
+    
+    if not text:
+        await send_message(chat_id, "❌ Не удалось распознать речь. Попробуйте ещё раз или напишите текстом.")
+        return
+    
+    # Показываем распознанный текст
+    await send_message(chat_id, f"📝 Распознано: <i>{text}</i>")
+    
+    # Обрабатываем как обычное сообщение
+    await process_message(chat_id, text, user_info)
 
 
 # ====== Запуск ======

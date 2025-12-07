@@ -2,6 +2,7 @@
 Обработчик свободного текста — AI-консультант с Function Calling.
 """
 
+from config.settings import LINK_FIXATION, LINK_SHAHMATKA
 from services.telegram import send_message, send_message_inline
 from services.ai_chat import analyze_user_intent, ask_ai_about_project
 from services.data_loader import load_finance
@@ -137,22 +138,14 @@ async def handle_free_text(chat_id: int, text: str):
         unit_code = params.get("unit_code")
         
         if unit_code:
-            # Показываем рассрочку для конкретного юнита
             from handlers.units import handle_finance_overview
             await handle_finance_overview(chat_id, unit_code)
             return
         else:
-            # Показываем выбор юнита
             inline_buttons = [
-                [
-                    {"text": "Студия A209 (15.3 млн)", "callback_data": "finance_A209"}
-                ],
-                [
-                    {"text": "Стандарт B210 (19.7 млн)", "callback_data": "finance_B210"}
-                ],
-                [
-                    {"text": "Люкс A305 (23.7 млн)", "callback_data": "finance_A305"}
-                ]
+                [{"text": "Студия A209 (15.3 млн)", "callback_data": "finance_A209"}],
+                [{"text": "Стандарт B210 (19.7 млн)", "callback_data": "finance_B210"}],
+                [{"text": "Люкс A305 (23.7 млн)", "callback_data": "finance_A305"}]
             ]
             await send_message_inline(
                 chat_id,
@@ -176,17 +169,10 @@ async def handle_free_text(chat_id: int, text: str):
             await handle_layouts(chat_id, unit_code)
             return
         else:
-            # Показываем выбор юнита
             inline_buttons = [
-                [
-                    {"text": "Студия A209", "callback_data": "layout_A209"}
-                ],
-                [
-                    {"text": "Стандарт B210", "callback_data": "layout_B210"}
-                ],
-                [
-                    {"text": "Люкс A305", "callback_data": "layout_A305"}
-                ]
+                [{"text": "Студия A209", "callback_data": "layout_A209"}],
+                [{"text": "Стандарт B210", "callback_data": "layout_B210"}],
+                [{"text": "Люкс A305", "callback_data": "layout_A305"}]
             ]
             await send_message_inline(
                 chat_id,
@@ -197,11 +183,8 @@ async def handle_free_text(chat_id: int, text: str):
     
     # === КОММЕРЧЕСКИЕ ПРЕДЛОЖЕНИЯ ===
     if intent == "get_commercial_proposal":
-        from handlers.kp import handle_kp_request, handle_kp_menu
-        from services.kp_search import (
-            find_kp_by_code, find_kp_by_area, 
-            find_kp_by_budget, find_kp_by_floor
-        )
+        from handlers.kp import handle_kp_menu
+        from services.kp_search import find_kp_by_code, find_kp_by_area, find_kp_by_budget, find_kp_by_floor
         from services.telegram import send_photo, send_media_group
         
         unit_code = params.get("unit_code")
@@ -210,14 +193,12 @@ async def handle_free_text(chat_id: int, text: str):
         floor = params.get("floor")
         block_section = params.get("block_section")
         
-        # По коду лота
         if unit_code:
             filepath = find_kp_by_code(unit_code)
             if filepath:
                 await send_photo(chat_id, filepath, f"📋 КП: {unit_code}")
                 return
         
-        # По площади
         if area:
             files = find_kp_by_area(area)
             if files:
@@ -227,7 +208,6 @@ async def handle_free_text(chat_id: int, text: str):
                     await send_media_group(chat_id, files[:10], f"📋 КП на ~{area} м²")
                 return
         
-        # По бюджету
         if budget:
             files = find_kp_by_budget(int(budget))
             if files:
@@ -238,7 +218,6 @@ async def handle_free_text(chat_id: int, text: str):
                     await send_media_group(chat_id, files[:10], f"📋 КП на ~{budget_mln:.0f} млн")
                 return
         
-        # По этажу
         if floor:
             files = find_kp_by_floor(floor, block_section)
             if files:
@@ -248,15 +227,70 @@ async def handle_free_text(chat_id: int, text: str):
                     await send_media_group(chat_id, files[:10], f"📋 КП {floor} этаж")
                 return
         
-        # Ничего не найдено — показываем меню КП
         await handle_kp_menu(chat_id)
+        return
+    
+    # === ПРЕЗЕНТАЦИЯ (NEW) ===
+    if intent == "send_presentation":
+        from handlers.media import handle_send_presentation
+        await handle_send_presentation(chat_id)
+        return
+    
+    # === ФИКСАЦИЯ КЛИЕНТА (NEW) ===
+    if intent == "open_fixation":
+        inline_buttons = [
+            [{"text": "📌 Открыть форму фиксации", "url": LINK_FIXATION}],
+            [{"text": "🔙 В меню", "callback_data": "back_to_menu"}]
+        ]
+        await send_message_inline(
+            chat_id,
+            "📌 <b>Фиксация клиента</b>\n\n"
+            "Для фиксации клиента за вами нажмите кнопку ниже.\n"
+            "После фиксации клиент будет закреплён за вами на 30 дней.",
+            inline_buttons
+        )
+        return
+    
+    # === ШАХМАТКА (NEW) ===
+    if intent == "open_shahmatka":
+        inline_buttons = [
+            [{"text": "🏠 Открыть шахматку", "url": LINK_SHAHMATKA}],
+            [{"text": "🔙 В меню", "callback_data": "back_to_menu"}]
+        ]
+        await send_message_inline(
+            chat_id,
+            "🏠 <b>Шахматка</b>\n\n"
+            "Актуальная шахматка с доступными лотами.\n"
+            "Нажмите кнопку ниже для просмотра:",
+            inline_buttons
+        )
+        return
+    
+    # === ДОКУМЕНТЫ (NEW) ===
+    if intent == "send_documents":
+        doc_type = params.get("doc_type", "all")
+        
+        from handlers.docs import handle_send_ddu, handle_send_arenda, handle_send_all_docs, handle_documents_menu
+        
+        if doc_type == "ddu":
+            await handle_send_ddu(chat_id)
+        elif doc_type == "arenda":
+            await handle_send_arenda(chat_id)
+        elif doc_type == "all":
+            await handle_send_all_docs(chat_id)
+        else:
+            await handle_documents_menu(chat_id)
+        return
+    
+    # === МЕДИА (NEW) ===
+    if intent == "show_media":
+        from handlers.media import handle_media_menu
+        await handle_media_menu(chat_id)
         return
     
     # === ОБЫЧНЫЙ ТЕКСТОВЫЙ ОТВЕТ ===
     response_text = result.get("response")
-    response_text = result.get("response")
     if not response_text:
-        # Fallback — обычный запрос к AI
         response_text = ask_ai_about_project(text)
     
     inline_buttons = [
