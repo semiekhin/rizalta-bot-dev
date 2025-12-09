@@ -363,3 +363,91 @@ curl "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getWebhookInfo"
 4. **При изменении app.py** — обязательно перезапустить: `systemctl restart rizalta-bot`
 
 5. **GitHub репо** — semiekhin (с "e"), не semukhin!
+
+---
+
+## Модуль новостей (handlers/news.py)
+
+### API ключи и эндпоинты
+```python
+# Aviasales (бесплатный)
+AVIASALES_TOKEN = "9d268d3a67128df02ab46acf3fa764fa"
+# https://api.travelpayouts.com/aviasales/v3/prices_for_dates
+
+# Курсы валют ЦБ РФ (бесплатный, без ключа)
+# https://www.cbr-xml-daily.ru/daily_json.js
+
+# Погода Open-Meteo (бесплатный, без ключа)
+# https://api.open-meteo.com/v1/forecast
+# Координаты Белокурихи: 51.996, 84.993
+```
+
+### RSS источники
+```python
+RSS_SOURCES = [
+    "https://ria.ru/export/rss2/archive/index.xml",      # РИА Новости
+    "https://www.kommersant.ru/rss/main.xml",            # Коммерсант
+    "https://lenta.ru/rss",                               # Lenta.ru
+    "https://www.vedomosti.ru/rss/news",                 # Ведомости
+    "https://tass.ru/rss/v2.xml",                        # ТАСС
+]
+```
+
+### Частые проблемы
+
+**CBR API возвращает application/javascript:**
+```python
+# Решение: content_type=None
+await response.json(content_type=None)
+```
+
+**Превью ссылки Aviasales в сообщении:**
+```python
+# Решение: добавить параметр
+await send_message_inline(chat_id, text, buttons, disable_web_page_preview=True)
+```
+
+### Callback'и в app.py
+```python
+# Строки ~455-478
+elif data == "news_menu": ...
+elif data == "news_currency": ...
+elif data == "news_weather": ...
+elif data == "news_digest": ...
+elif data == "news_flights": ...
+```
+
+### Текстовый обработчик
+```python
+# Строка ~613 в app.py
+if "📰 Новости" in text:
+    from handlers.news import handle_news_menu
+    await handle_news_menu(chat_id)
+    return
+```
+
+---
+
+## Сессия 08.12.2025 — ключевые команды
+```bash
+# Установка aiohttp
+/opt/bot/venv/bin/pip install aiohttp
+
+# Проверка API авиабилетов
+curl -s "https://api.travelpayouts.com/aviasales/v3/prices_for_dates?origin=MOW&destination=RGK&departure_at=2025-12&token=9d268d3a67128df02ab46acf3fa764fa"
+
+# Убить зависший процесс на порту 8000
+pkill -9 -f uvicorn; sleep 2; systemctl restart rizalta-bot
+```
+
+---
+
+## Нюансы для следующего чата (обновлено)
+
+6. **Модуль новостей** — handlers/news.py содержит 5 функций: handle_news_menu, handle_currency_rates, handle_weather, handle_flights, handle_news_digest
+
+7. **Aviasales токен** — 9d268d3a67128df02ab46acf3fa764fa (зарегистрирован на 89181011091s@mail.ru)
+
+8. **RSS без ключей** — РИА, Коммерсант, Lenta, Ведомости, ТАСС работают бесплатно
+
+9. **AI-агент (Контент-завод)** — следующая задача: парсинг → GPT рерайт → DALL-E → автопостинг

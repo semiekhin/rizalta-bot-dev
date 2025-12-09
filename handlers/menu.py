@@ -211,3 +211,18 @@ async def handle_choose_unit_for_layout(chat_id: int):
         with_keyboard=True,
         buttons=UNIT_SELECT_BUTTONS,
     )
+
+
+async def handle_myid(chat_id: int, user_info: dict = None):
+    """Показывает пользователю его Telegram chat_id."""
+    username = user_info.get("username", "") if user_info else ""
+    first_name = user_info.get("first_name", "") if user_info else ""
+    
+    text = f"ℹ️ <b>Ваши данные Telegram:</b>\n\n🆔 Chat ID: <code>{chat_id}</code>\n"
+    if username:
+        text += f"👤 Username: @{username}\n"
+    if first_name:
+        text += f"📝 Имя: {first_name}\n"
+    text += "\n💡 <i>Chat ID используется для системы бронирования.</i>"
+    
+    await send_message(chat_id, text)

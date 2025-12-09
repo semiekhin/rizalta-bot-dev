@@ -4,6 +4,7 @@
 
 # Меню и навигация
 from .menu import (
+    handle_myid,
     handle_start,
     handle_help,
     handle_back,

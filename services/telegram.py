@@ -23,6 +23,7 @@ async def send_message(
     with_keyboard: bool = False,
     buttons: Optional[List[List[Any]]] = None,
     parse_mode: str = "HTML",
+    disable_web_page_preview: bool = False,
 ) -> bool:
     """Отправляет сообщение в Telegram."""
     token = get_token()
@@ -36,6 +37,7 @@ async def send_message(
         "chat_id": chat_id,
         "text": text,
         "parse_mode": parse_mode,
+        "disable_web_page_preview": disable_web_page_preview,
     }
     
     if with_keyboard and buttons:
@@ -79,6 +81,7 @@ async def send_message_inline(
     text: str,
     inline_buttons: Optional[List[List[Dict[str, str]]]] = None,
     parse_mode: str = "HTML",
+    disable_web_page_preview: bool = False,
 ) -> bool:
     """Отправляет сообщение с inline-кнопками."""
     token = get_token()
@@ -92,6 +95,7 @@ async def send_message_inline(
         "chat_id": chat_id,
         "text": text,
         "parse_mode": parse_mode,
+        "disable_web_page_preview": disable_web_page_preview,
     }
     
     if inline_buttons:

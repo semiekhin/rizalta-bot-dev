@@ -452,28 +452,6 @@ async def process_callback(callback: Dict[str, Any]):
         booking_id = int(data.replace("book_decline_", ""))
         await handle_decline_booking(chat_id, booking_id)
 
-    # ===== Новости =====
-
-    elif data == "news_menu":
-        from handlers.news import handle_news_menu
-        await handle_news_menu(chat_id)
-
-    elif data == "news_currency":
-        from handlers.news import handle_currency_rates
-        await handle_currency_rates(chat_id)
-
-    elif data == "news_weather":
-        from handlers.news import handle_weather
-        await handle_weather(chat_id)
-
-    elif data == "news_digest":
-        from handlers.news import handle_news_digest
-        await handle_news_digest(chat_id)
-
-    elif data == "news_flights":
-        from handlers.news import handle_flights
-        await handle_flights(chat_id)
-
 
 async def process_message(chat_id: int, text: str, user_info: Dict[str, Any]):
     """Главный роутер текстовых сообщений."""
@@ -486,17 +464,25 @@ async def process_message(chat_id: int, text: str, user_info: Dict[str, Any]):
         clear_dialog_state(chat_id)
     
     # ===== Команды =====
-    if text == "/help":
-        await handle_help(chat_id)
+    
+    if text.startswith("/start"):
+        await handle_start(chat_id, text, user_info)
         return
+    
+    if text == "/help":
     
     if text == "/myid":
         await handle_myid(chat_id, user_info)
         return
+        await handle_help(chat_id)
     
+    if text == "/myid":
+        await handle_myid(chat_id, user_info)
+        return
+        return
     
-    if text.startswith("/start"):
-        await handle_start(chat_id, text, user_info)
+    if text == "/myid":
+        await handle_myid(chat_id, user_info)
         return
     
     # ===== Кнопка Назад =====
@@ -610,11 +596,6 @@ async def process_message(chat_id: int, text: str, user_info: Dict[str, Any]):
         )
         return
     
-    if "📰 Новости" in text:
-        from handlers.news import handle_news_menu
-        await handle_news_menu(chat_id)
-        return
-
     if "🎬 Медиа" in text:
         await handle_media_menu(chat_id)
         return
