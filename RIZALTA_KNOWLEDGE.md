@@ -451,3 +451,73 @@ pkill -9 -f uvicorn; sleep 2; systemctl restart rizalta-bot
 8. **RSS без ключей** — РИА, Коммерсант, Lenta, Ведомости, ТАСС работают бесплатно
 
 9. **AI-агент (Контент-завод)** — следующая задача: парсинг → GPT рерайт → DALL-E → автопостинг
+
+---
+
+## Сессия 09.12.2025 — Dev-окружение
+
+### Два репозитория (ВАЖНО!)
+```
+Prod: github.com/semiekhin/rizalta-bot
+      /opt/bot, @RealtMeAI_bot, webhook
+      НЕ ТРОГАТЬ без необходимости!
+
+Dev:  github.com/semiekhin/rizalta-bot-dev
+      /opt/bot-dev, @rizaltatestdevop_bot, polling
+      Тут экспериментируем
+```
+
+### Парсер ri.rclick.ru
+```python
+# Endpoint
+POST https://ri.rclick.ru/catalog/more/
+data: {"id": 340, "page": N}
+
+# 8 карточек на страницу, 47 страниц = 369 квартир
+# Запуск
+cd /opt/bot-dev && python3 services/parser_rclick.py
+```
+
+### Сервис units_db.py
+```python
+from services.units_db import (
+    get_unique_lots,      # 70 типов по площади
+    get_lots_by_area,     # Фильтр по площади
+    get_lots_by_budget,   # Фильтр по бюджету
+    get_lot_by_code,      # Поиск по коду
+)
+```
+
+### PDF генератор
+```bash
+# Зависимости (уже установлены)
+apt install fonts-montserrat wkhtmltopdf
+
+# Генерация
+python3 services/kp_pdf_generator.py --area 22.0
+python3 services/kp_pdf_generator.py --code В227
+
+# Результат: /tmp/KP_В227_12m_24m.pdf
+```
+
+### Dev-бот
+```bash
+# Токен: 8454364431:AAESkhkvWlo2Y8vv4iq6n1HePZ40bv8YlbY
+# Username: @rizaltatestdevop_bot
+
+systemctl status rizalta-bot-dev
+journalctl -u rizalta-bot-dev -f
+systemctl restart rizalta-bot-dev
+```
+
+### Нюансы для следующего чата
+
+15. **Два репо** — prod (rizalta-bot) и dev (rizalta-bot-dev), работаем в dev
+
+16. **PDF генератор** — базовая версия работает, нужен дизайн как в образце
+
+17. **Образец дизайна** — KP_B415_12m_24m.pdf (зелёный header, логотип, карточки)
+
+18. **Ресурсы** — шрифты base64, логотип нужно интегрировать в генератор
+
+19. **После тестирования** — перенести изменения из dev в prod

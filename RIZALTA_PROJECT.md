@@ -205,3 +205,38 @@ free -m && df -h
 - AI консультант с базой знаний
 - 69 коммерческих предложений
 - Главное меню и навигация
+
+---
+
+## Dev-окружение (v1.7.0-dev)
+
+### Два репозитория
+| Репо | Назначение | Бот |
+|------|-----------|-----|
+| github.com/semiekhin/rizalta-bot | Prod | @RealtMeAI_bot |
+| github.com/semiekhin/rizalta-bot-dev | Dev | @rizaltatestdevop_bot |
+
+### Структура dev
+```
+/opt/bot-dev/
+├── services/
+│   ├── parser_rclick.py      # Парсер ri.rclick.ru
+│   ├── units_db.py           # Сервис работы с БД
+│   └── kp_pdf_generator.py   # PDF генератор КП
+├── handlers/
+│   └── kp.py                 # Переписан под units_db
+├── kp_all/                   # 69 КП (jpg + html)
+├── docs/                     # Документы, презентации
+├── properties.db             # 369 актуальных квартир
+└── run_polling.py            # Polling mode
+```
+
+### История изменений
+
+#### v1.7.0-dev (09.12.2025)
+- Dev-окружение с отдельным репо
+- Парсер ri.rclick.ru: 369 квартир
+- Единый источник данных: ri.rclick.ru → properties.db
+- Сервис units_db.py
+- PDF генератор КП (базовая версия)
+- handlers/kp.py переписан под новую архитектуру
