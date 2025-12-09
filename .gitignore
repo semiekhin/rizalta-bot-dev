@@ -1,34 +1,5 @@
-# Environment
-.env
-*.env.local
-
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
 venv/
-ENV/
-
-# Logs
+__pycache__/
+*.pyc
+.env
 *.log
-logs/
-
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-
-# Archives
-*.tar.gz
-*.zip
-
-# Media (хранится отдельно)
-kp_all/
-docs/
-
-# Temp
-*.tmp
-.DS_Store
