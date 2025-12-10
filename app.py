@@ -420,6 +420,29 @@ async def process_callback(callback: Dict[str, Any]):
         min_budget, max_budget = int(parts[0]), int(parts[1])
         await handle_calc_roi_budget_range(chat_id, min_budget, max_budget)
 
+    elif data.startswith("calc_roi_show_area_"):
+        from handlers.calc_dynamic import handle_calc_roi_show_all_area
+        parts = data.replace("calc_roi_show_area_", "").split("_")
+        min_area, max_area = float(parts[0]), float(parts[1])
+        await handle_calc_roi_show_all_area(chat_id, min_area, max_area)
+
+    elif data.startswith("calc_roi_show_budget_"):
+        from handlers.calc_dynamic import handle_calc_roi_show_all_budget
+        parts = data.replace("calc_roi_show_budget_", "").split("_")
+        min_budget, max_budget = int(parts[0]), int(parts[1])
+        await handle_calc_roi_show_all_budget(chat_id, min_budget, max_budget)
+
+    elif data.startswith("calc_fin_show_area_"):
+        from handlers.calc_dynamic import handle_calc_finance_show_all_area
+        parts = data.replace("calc_fin_show_area_", "").split("_")
+        min_area, max_area = float(parts[0]), float(parts[1])
+        await handle_calc_finance_show_all_area(chat_id, min_area, max_area)
+
+    elif data.startswith("calc_fin_show_budget_"):
+        from handlers.calc_dynamic import handle_calc_finance_show_all_budget
+        parts = data.replace("calc_fin_show_budget_", "").split("_")
+        min_budget, max_budget = int(parts[0]), int(parts[1])
+        await handle_calc_finance_show_all_budget(chat_id, min_budget, max_budget)
     elif data.startswith("calc_fin_area_"):
         parts = data.replace("calc_fin_area_", "").split("_")
         min_area, max_area = float(parts[0]), float(parts[1])

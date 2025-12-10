@@ -521,3 +521,65 @@ systemctl restart rizalta-bot-dev
 18. **Ресурсы** — шрифты base64, логотип нужно интегрировать в генератор
 
 19. **После тестирования** — перенести изменения из dev в prod
+
+---
+
+## Сессия 10.12.2025 — Важные нюансы
+
+### Фикс бага КП (дубликаты кодов)
+**Проблема:** Код лота (В310) не уникален — несколько квартир с одинаковым кодом в разных корпусах.
+
+**Дубликаты в БД (примеры):**
+- В310: 28.7 м² и 39.6 м²
+- В701: 24.7 м² и 68.8 м²
+- В907: 42.1 м² и 87.4 м²
+
+**Решение:** Изменили поиск с `code` на `area`:
+```python
+# Было (handlers/kp.py):
+pdf_path = generate_kp_pdf(code=lot["code"], ...)
+
+# Стало:
+pdf_path = generate_kp_pdf(area=lot["area"], ...)
+```
+
+**Callback'и:**
+```python
+# Было:
+callback_data=f"kp_select_{lot['code']}"  # kp_select_B310
+
+# Стало:
+callback_data=f"kp_select_{int(lot['area']*10)}"  # kp_select_287
+```
+
+### Кнопка "Показать все" в Расчётах
+Добавлены 4 новых callback в app.py:
+- `calc_roi_show_area_{min}_{max}`
+- `calc_roi_show_budget_{min}_{max}`
+- `calc_fin_show_area_{min}_{max}`
+- `calc_fin_show_budget_{min}_{max}`
+
+### Cron автопарсинга
+```bash
+crontab -l | grep parser
+# 0 3 * * * cd /opt/bot && ... parser_rclick.py
+# 0 6 * * * cd /opt/bot-dev && ... parser_rclick.py
+```
+
+### Метазнания AI
+Добавлено в `rizalta_knowledge_base.txt`:
+- Описание всех функций бота
+- Инструкции по использованию
+- Критические правила (не обещать невозможное)
+- Направление на кнопки меню вместо "поиска"
+
+### Частые команды
+```bash
+# Проверить дубликаты кодов
+sqlite3 properties.db "SELECT code, COUNT(*) as cnt, GROUP_CONCAT(area_m2) FROM units GROUP BY code HAVING cnt > 1"
+
+# Деплой в prod
+cp /opt/bot-dev/handlers/kp.py /opt/bot/handlers/
+cp /opt/bot-dev/app.py /opt/bot/
+systemctl restart rizalta-bot
+```

@@ -285,7 +285,7 @@ async def handle_kp_generate_pdf(chat_id: int, area_x10: int, include_24m: bool)
     await send_message(chat_id, "⏳ Генерирую PDF...")
     
     # Генерируем PDF
-    pdf_path = generate_kp_pdf(code=lot["code"], include_24m=include_24m)
+    pdf_path = generate_kp_pdf(area=lot["area"], include_24m=include_24m)
     
     if pdf_path and os.path.exists(pdf_path):
         # Отправляем PDF
