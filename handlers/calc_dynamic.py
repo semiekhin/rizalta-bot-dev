@@ -103,18 +103,23 @@ async def handle_calc_roi_lot(chat_id: int, area: float):
             lot = l
             break
     if not lot:
-        await send_message(chat_id, f"❌ Лот {unit_code} не найден.")
+        await send_message(chat_id, f"❌ Лот не найден.")
         return
-    calc = calculate_roi_for_lot(lot['price'], lot['area'], lot['code'])
-    text = format_roi_text(calc)
+    
+    # Новый инвестиционный расчёт
+    from services.investment_calc import calculate_investment, format_investment_text
+    price_m2 = int(lot['price'] / lot['area'])
+    calc = calculate_investment(lot['area'], price_m2)
+    text = format_investment_text(lot['code'], calc)
+    
     inline_buttons = [
         [{"text": "💳 Рассрочка", "callback_data": f"calc_finance_lot_{int(lot['area']*10)}"},
+         {"text": "📥 DOCX", "callback_data": f"roi_docx_{lot['code']}"},
          {"text": "📋 Получить КП", "callback_data": f"kp_send_{int(lot['area']*10)}"}],
         [{"text": "🔥 Записаться на показ", "callback_data": "online_show"}],
         [{"text": "🔙 К списку", "callback_data": "calc_roi_menu"}],
     ]
     await send_message_inline(chat_id, text, inline_buttons)
-
 
 async def handle_calc_finance_menu(chat_id: int):
     text = "💳 <b>Рассрочка и ипотека</b>\n\nКак искать лот?"
