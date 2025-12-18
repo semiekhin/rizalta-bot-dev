@@ -583,3 +583,77 @@ cp /opt/bot-dev/handlers/kp.py /opt/bot/handlers/
 cp /opt/bot-dev/app.py /opt/bot/
 systemctl restart rizalta-bot
 ```
+
+---
+
+## 📅 Обновление 18.12.2025
+
+### Технические решения
+
+**Excel генератор — значения вместо формул:**
+- Проблема: openpyxl записывает формулы без кэшированных значений
+- Просмотрщики (web.telegram.org, Mac Preview) не пересчитывают формулы
+- Решение: Python вычисляет всё заранее, записывает готовые числа
+- Файл: `services/calc_xlsx_generator.py`
+
+**Ежедневная проверка системы:**
+- Скрипт: `/opt/bot/daily_check.sh`
+- Проверяет: сервисы, ресурсы, сеть, безопасность, бэкапы, логи, БД
+
+### Планируемая фича: Сравнение депозит vs RIZALTA
+
+**Концепция:**
+Клиент говорит "У меня 15 млн" → бот показывает сравнение доходности
+
+**Архитектура:**
+```
+services/
+├── deposit_parser.py      # Парсер ставок банков
+├── deposit_calculator.py  # Расчёт доходности + налоги
+└── investment_compare.py  # Сравнение депозит vs RIZALTA
+```
+
+**3 сценария ключевой ставки:**
+- 🔴 Высокая (21%) — текущая аномалия
+- 🟡 Средняя (12%) — историческая средняя
+- 🟢 Низкая (7%) — как в 2020 году
+
+**Налог на депозит (2025):**
+- Необлагаемый минимум: 1 млн × макс. ключевая ставка = 210 000 ₽
+- НДФЛ 13% с превышения (15% если доход > 2.4 млн/год)
+- Налог только на проценты, не на тело вклада
+
+**Периоды сравнения:** 1, 3, 5, 11 лет
+
+### Частые команды
+```bash
+# Подключение к серверу
+ssh -p 2222 root@72.56.64.91
+
+# Перезапуск ботов
+systemctl restart rizalta-bot
+systemctl restart rizalta-bot-dev
+
+# Логи
+journalctl -u rizalta-bot -f
+journalctl -u rizalta-bot --since "1 hour ago" | grep -i error
+
+# Если порт занят
+fuser -k 8000/tcp && sleep 2 && systemctl restart rizalta-bot
+
+# Проверка статуса
+systemctl status rizalta-bot rizalta-bot-dev
+
+# Ежедневная проверка
+/opt/bot/daily_check.sh
+
+# Тест OpenAI ключа
+curl -s https://api.openai.com/v1/models -H "Authorization: Bearer $OPENAI_API_KEY" | head -c 100
+```
+
+### Решённые проблемы
+
+**OpenAI API 401 ошибка:**
+- Причина: ключ истёк или недействителен
+- Решение: создать новый ключ на platform.openai.com, обновить в .env обоих ботов
+- Проверка: `curl -s https://api.openai.com/v1/models -H "Authorization: Bearer <key>"`
