@@ -132,3 +132,70 @@ Python 3.12 · FastAPI · OpenAI GPT-4o-mini · Whisper · SQLite · Cloudflare 
 - Ставки аренды: база 26.8 м² (не 22!)
 - start_year = 2026 в калькуляторах
 - Формула скидки: price * 0.95
+
+---
+
+## AI-Секретарь (v1.9.7)
+
+### Назначение
+Личный ежедневник для риэлторов — голосовое добавление задач, просмотр расписания, напоминания.
+
+### Структура
+```
+handlers/secretary.py      — UI, навигация, обработка callback
+services/secretary_db.py   — SQLite операции (tasks table)
+services/secretary_ai.py   — GPT парсинг задач из текста
+secretary.db               — база данных задач
+```
+
+### Таблица tasks
+```sql
+CREATE TABLE tasks (
+    id INTEGER PRIMARY KEY,
+    user_id INTEGER NOT NULL,      -- chat_id пользователя
+    task_text TEXT NOT NULL,
+    due_date TEXT,                 -- YYYY-MM-DD
+    due_time TEXT,                 -- HH:MM
+    client_name TEXT,
+    priority TEXT DEFAULT 'normal', -- urgent/high/normal/low
+    status TEXT DEFAULT 'pending',  -- pending/done/cancelled
+    description TEXT,
+    reminder_sent INTEGER DEFAULT 0,
+    created_at TEXT,
+    completed_at TEXT
+);
+```
+
+### Callback'и
+```python
+secretary_menu          — главное меню секретаря
+sec_day_{date}         — задачи на день
+sec_week_{date}        — задачи на неделю
+sec_task_{id}          — детали задачи
+sec_done_{id}          — отметить выполненной
+sec_undone_{id}        — вернуть в работу
+sec_del_{id}           — удалить
+sec_move_{id}          — меню переноса
+sec_moveto_{id}_{date} — перенести на дату
+sec_add                — добавить задачу
+sec_add_{date}         — добавить на дату
+```
+
+### Режим секретаря
+- `set_secretary_mode(chat_id, True)` — включается при входе в меню
+- `is_secretary_mode(chat_id)` — проверка в process_message
+- Все сообщения в режиме → создание задач
+- Выход через "Главное меню" выключает режим
+
+---
+
+## История изменений
+
+| Версия | Дата | Описание |
+|--------|------|----------|
+| 1.9.7 | 21.12.2025 | AI-Секретарь, GPT парсинг задач, режим секретаря |
+| 1.9.6 | 19.12.2025 | Презентации (6), видео (9), улучшения КП |
+| 1.9.5 | 18.12.2025 | КП 3 варианта, фиксация ri.rclick.ru, депозит vs RIZALTA |
+| 1.9.2 | 18.12.2025 | Обновление OpenAI ключа, daily_check.sh |
+| 1.9.1 | 12.12.2025 | Fix Excel (значения вместо формул) |
+| 1.9 | 11-12.12.2025 | Excel ROI, безопасность SSH, документация |

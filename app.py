@@ -40,6 +40,17 @@ from services.calculations import normalize_unit_code
 
 # Обработчики
 from handlers import (
+    handle_secretary_menu,
+    handle_secretary_day,
+    handle_secretary_week,
+    handle_secretary_task_detail,
+    handle_secretary_done,
+    handle_secretary_undone,
+    handle_secretary_delete,
+    handle_secretary_move_menu,
+    handle_secretary_move_to,
+    handle_secretary_add_prompt,
+    process_secretary_input,
     # Динамические расчёты
     handle_calculations_menu_new,
     handle_calc_roi_menu,
@@ -309,6 +320,41 @@ async def process_callback(callback: Dict[str, Any]):
         await handle_send_presentation_file(chat_id, data)
     elif data == "media_video":
         await handle_video_menu(chat_id)
+    
+    # === AI-Секретарь ===
+    elif data == "secretary_menu":
+        await handle_secretary_menu(chat_id)
+    elif data.startswith("sec_day_"):
+        date_str = data.replace("sec_day_", "")
+        await handle_secretary_day(chat_id, date_str)
+    elif data.startswith("sec_week_"):
+        date_str = data.replace("sec_week_", "")
+        await handle_secretary_week(chat_id, date_str)
+    elif data.startswith("sec_task_"):
+        task_id = int(data.replace("sec_task_", ""))
+        await handle_secretary_task_detail(chat_id, task_id)
+    elif data.startswith("sec_done_"):
+        task_id = int(data.replace("sec_done_", ""))
+        await handle_secretary_done(chat_id, task_id)
+    elif data.startswith("sec_undone_"):
+        task_id = int(data.replace("sec_undone_", ""))
+        await handle_secretary_undone(chat_id, task_id)
+    elif data.startswith("sec_del_"):
+        task_id = int(data.replace("sec_del_", ""))
+        await handle_secretary_delete(chat_id, task_id)
+    elif data.startswith("sec_move_") and not data.startswith("sec_moveto_"):
+        task_id = int(data.replace("sec_move_", ""))
+        await handle_secretary_move_menu(chat_id, task_id)
+    elif data.startswith("sec_moveto_"):
+        parts = data.replace("sec_moveto_", "").split("_")
+        task_id = int(parts[0])
+        new_date = parts[1]
+        await handle_secretary_move_to(chat_id, task_id, new_date)
+    elif data == "sec_add":
+        await handle_secretary_add_prompt(chat_id)
+    elif data.startswith("sec_add_"):
+        preset_date = data.replace("sec_add_", "")
+        await handle_secretary_add_prompt(chat_id, preset_date)
     elif data.startswith("video_"):
         await handle_send_video(chat_id, data)
     
@@ -717,6 +763,18 @@ async def process_message(chat_id: int, text: str, user_info: Dict[str, Any]):
         handled = await handle_booking_input(chat_id, user_id, text)
         if handled:
             return
+    
+    # ===== AI-Секретарь (проверка режима) =====
+    from services.secretary_db import is_secretary_mode, set_secretary_mode
+    if is_secretary_mode(chat_id):
+        # Если нажата кнопка главного меню — выходим из режима
+        if is_main_menu_button:
+            set_secretary_mode(chat_id, False)
+        else:
+            handled = await process_secretary_input(chat_id, text)
+            if handled:
+                return
+    
     # ===== Команды =====
     if text == "/help":
         await handle_help(chat_id)
@@ -807,7 +865,7 @@ async def process_message(chat_id: int, text: str, user_info: Dict[str, Any]):
         await handle_calculations_menu_new(chat_id)
         return
 
-    if "📊 Депозит vs RIZALTA" in text or "депозит" in text.lower():
+    if "📊 Сравнение" in text or "депозит" in text.lower():
         from handlers.compare import handle_compare_menu
         await handle_compare_menu(chat_id)
         return
@@ -846,6 +904,10 @@ async def process_message(chat_id: int, text: str, user_info: Dict[str, Any]):
             "🏠 <b>Шахматка</b>\n\nНажмите кнопку ниже, чтобы открыть шахматку с актуальными лотами:",
             inline_buttons
         )
+        return
+    
+    if "🗓 Секретарь" in text:
+        await handle_secretary_menu(chat_id)
         return
     
     if "📰 Новости" in text:
@@ -924,15 +986,8 @@ async def process_message(chat_id: int, text: str, user_info: Dict[str, Any]):
     
     # Фиксация клиента
     if match_patterns(text, FIXATION_PATTERNS):
-        inline_buttons = [
-            [{"text": "📌 Открыть форму фиксации", "url": LINK_FIXATION}],
-            [{"text": "🔙 В меню", "callback_data": "back_to_menu"}]
-        ]
-        await send_message_inline(
-            chat_id,
-            "📌 <b>Фиксация клиента</b>\n\nДля фиксации клиента нажмите кнопку ниже:",
-            inline_buttons
-        )
+        from handlers.booking_fixation import handle_booking_menu
+        await handle_booking_menu(chat_id, user_info.get("id", chat_id))
         return
     
     # Шахматка

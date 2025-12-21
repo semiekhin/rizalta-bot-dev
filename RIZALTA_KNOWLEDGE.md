@@ -756,3 +756,100 @@ curl -X POST "https://ri.rclick.ru/notice/newbooking/" \
 2. **SQLite для токенов:** Простое хранение, 90 дней срок
 3. **Reverse engineering:** Официального API нет, используем endpoints сайта
 4. **Mode вместо include_24m:** Расширяемость для новых вариантов КП
+
+---
+
+## Сессия 21.12.2025 — AI-Секретарь
+
+### Новые файлы
+```
+handlers/secretary.py      — 350 строк, UI секретаря
+services/secretary_db.py   — 200 строк, SQLite операции
+services/secretary_ai.py   — 120 строк, GPT парсинг
+```
+
+### GPT промпт для парсинга задач
+```python
+TASK_PARSER_PROMPT = """Ты — AI-секретарь. Извлеки данные из текста.
+Сегодня: {today}, {weekday}
+
+Извлеки:
+- task: что сделать (ОБЯЗАТЕЛЬНО включи имя клиента)
+- date: YYYY-MM-DD или null
+- time: HH:MM или null
+- client_name: имя или null
+- priority: urgent/high/normal/low
+- description: детали или null
+
+Ответь ТОЛЬКО JSON без markdown."""
+```
+
+### Ключевые решения
+
+**1. Режим секретаря вместо GPT-классификации**
+- Проблема: regex-паттерны перехватывают задачи ("КП" → меню КП)
+- Решение: отдельный режим, в котором ВСЁ = задачи
+- Минус: нужно явно входить/выходить из режима
+- План: переделать на GPT-классификацию всех запросов
+
+**2. Хранение режима в памяти**
+```python
+secretary_mode_users = set()  # В secretary_db.py
+# НЕ в SQLite — сбрасывается при рестарте бота
+```
+
+**3. Проверка режима в начале process_message**
+```python
+# app.py строка ~767
+from services.secretary_db import is_secretary_mode, set_secretary_mode
+if is_secretary_mode(chat_id):
+    if is_main_menu_button:
+        set_secretary_mode(chat_id, False)
+    else:
+        handled = await process_secretary_input(chat_id, text)
+        if handled:
+            return
+```
+
+### Частые команды сессии
+```bash
+# Рестарт dev
+systemctl restart rizalta-bot-dev
+
+# Логи
+journalctl -u rizalta-bot-dev -n 30 --no-pager
+
+# Проверка синтаксиса
+python3 -m py_compile /opt/bot-dev/handlers/secretary.py
+
+# Grep по callback'ам
+grep -n "sec_day\|sec_week\|secretary" /opt/bot-dev/app.py
+```
+
+### Решённые проблемы
+
+**1. SyntaxError в secretary_db.py**
+- Причина: замена текста сломала структуру файла
+- Решение: пересоздать файл целиком через cat > file << 'EOF'
+
+**2. Индентация в process_secretary_input**
+- Причина: неправильный отступ после if/else
+- Решение: пересоздать handler целиком
+
+**3. KP_PATTERNS перехватывает задачи**
+- Причина: "отправить КП" → меню КП вместо задачи
+- Решение: проверка is_secretary_mode в начале process_message
+
+### Нюансы для следующего чата
+
+20. **AI-Секретарь** — handlers/secretary.py, работает в режиме (set_secretary_mode)
+
+21. **Не деплоили в prod** — секретарь только в dev, нужна стабилизация
+
+22. **GPT-роутинг** — следующая задача: все запросы через GPT классификацию намерений вместо regex
+
+23. **Скрытие клавиатуры** — НЕ реализовано, пользователь видит оба меню
+
+24. **secretary.db** — отдельная база от properties.db, хранит только задачи
+
+25. **Whisper распознаёт неточно** — "напомни" → "напомню", "позвонить" → "позвоните"
