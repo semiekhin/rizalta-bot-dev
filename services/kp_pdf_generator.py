@@ -19,7 +19,7 @@ def load_resource(filename: str) -> str:
     path = RESOURCES_DIR / filename
     return path.read_text().strip() if path.exists() else ""
 
-def get_lot_from_db(area: float = 0, code: str = "") -> Optional[Dict[str, Any]]:
+def get_lot_from_db(area: float = 0, code: str = "", building: int = None) -> Optional[Dict[str, Any]]:
     if not DB_PATH.exists():
         return None
     conn = sqlite3.connect(str(DB_PATH))
@@ -28,7 +28,10 @@ def get_lot_from_db(area: float = 0, code: str = "") -> Optional[Dict[str, Any]]
         code_upper = code.strip().upper()
         table = str.maketrans({"А": "A", "В": "B", "Е": "E", "К": "K", "М": "M", "Н": "H", "О": "O", "Р": "P", "С": "S", "Т": "T"})
         code_latin = code_upper.translate(table)
-        cursor.execute("SELECT code, building, floor, rooms, area_m2, price_rub, layout_url, block_section FROM units WHERE code = ? OR code = ? LIMIT 1", (code_upper, code_latin))
+        if building:
+            cursor.execute("SELECT code, building, floor, rooms, area_m2, price_rub, layout_url, block_section FROM units WHERE (code = ? OR code = ?) AND building = ? LIMIT 1", (code_upper, code_latin, building))
+        else:
+            cursor.execute("SELECT code, building, floor, rooms, area_m2, price_rub, layout_url, block_section FROM units WHERE code = ? OR code = ? LIMIT 1", (code_upper, code_latin))
     elif area > 0:
         cursor.execute("SELECT code, building, floor, rooms, area_m2, price_rub, layout_url, block_section FROM units WHERE ABS(area_m2 - ?) < 0.1 ORDER BY price_rub LIMIT 1", (area,))
     else:
@@ -296,8 +299,8 @@ body {{ font-family: 'Montserrat', Arial, sans-serif; background: #F6F0E3; color
 </body></html>'''
     return html
 
-def generate_kp_pdf(area: float = 0, code: str = "", include_18m: bool = True, full_payment: bool = False, output_dir: str = None) -> Optional[str]:
-    lot = get_lot_from_db(area=area, code=code)
+def generate_kp_pdf(area: float = 0, code: str = "", building: int = None, include_18m: bool = True, full_payment: bool = False, output_dir: str = None) -> Optional[str]:
+    lot = get_lot_from_db(area=area, code=code, building=building)
     if not lot:
         print(f"[KP PDF] Лот не найден: area={area}, code={code}")
         return None
