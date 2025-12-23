@@ -1,17 +1,15 @@
 """
 AI-Секретарь — личный ежедневник с голосовым вводом.
+Версия 2.0 — без режима секретаря (GPT-роутинг делает это ненужным)
 """
 
 from datetime import datetime, timedelta
 from services.telegram import send_message, send_message_inline
 from services.secretary_db import (
     add_task, get_tasks_for_date, get_tasks_for_week, get_task_by_id,
-    update_task_status, update_task_date, delete_task, count_tasks_for_date,
-    is_secretary_mode, set_secretary_mode
+    update_task_status, update_task_date, delete_task, count_tasks_for_date
 )
-from services.secretary_ai import (
-    parse_task_with_ai, analyze_workload
-)
+from services.secretary_ai import analyze_workload
 
 
 WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
@@ -42,14 +40,12 @@ async def handle_secretary_menu(chat_id: int):
     today_str = today.strftime("%Y-%m-%d")
     tomorrow_str = (today + timedelta(days=1)).strftime("%Y-%m-%d")
     
-    # Понедельник текущей и следующей недели
     monday_current = today - timedelta(days=today.weekday())
     monday_next = monday_current + timedelta(days=7)
     
     stats = count_tasks_for_date(chat_id, today_str)
     
-    # Включаем режим секретаря
-    set_secretary_mode(chat_id, True)
+    # НЕ включаем режим секретаря — GPT-роутинг сам разберётся
     
     text = f"""🗓 <b>AI-Секретарь</b>
 
@@ -58,9 +54,9 @@ async def handle_secretary_menu(chat_id: int):
 Выполнено: <b>{stats['done']}</b>
 
 💡 Просто скажите или напишите задачу:
-<i>«Позвонить Иванову в 15:00»</i>
+<i>«Завтра позвонить Иванову в 15:00»</i>
 
-🎯 <b>Режим секретаря активен</b>"""
+🎤 Голосовые сообщения работают из любого места!"""
 
     inline_buttons = [
         [{"text": "📅 Сегодня", "callback_data": f"sec_day_{today_str}"},
@@ -68,7 +64,7 @@ async def handle_secretary_menu(chat_id: int):
         [{"text": "📆 Текущая неделя", "callback_data": f"sec_week_{monday_current.strftime('%Y-%m-%d')}"}],
         [{"text": "📆 Следующая неделя", "callback_data": f"sec_week_{monday_next.strftime('%Y-%m-%d')}"}],
         [{"text": "➕ Добавить задачу", "callback_data": "sec_add"}],
-        [{"text": "🔙 Главное меню", "callback_data": "main_menu"}],
+        [{"text": "🔙 Главное меню", "callback_data": "back_to_menu"}],
     ]
     await send_message_inline(chat_id, text, inline_buttons)
 
@@ -106,13 +102,11 @@ async def handle_secretary_day(chat_id: int, date_str: str):
         lines.append(f"Выполнено: {done} из {len(tasks)}" + (f" • 🔴 {urgent} срочных" if urgent else ""))
         text = "\n".join(lines)
     
-    # Кнопки навигации
     prev_date = (datetime.strptime(date_str, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
     next_date = (datetime.strptime(date_str, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
     
     inline_buttons = []
     
-    # Кнопки задач (для перехода в детали)
     for t in tasks[:5]:
         btn_text = get_status_icon(t) + " " + (t["task_text"][:25] + "..." if len(t["task_text"]) > 25 else t["task_text"])
         inline_buttons.append([{"text": btn_text, "callback_data": f"sec_task_{t['id']}"}])
@@ -303,74 +297,19 @@ async def handle_secretary_add_prompt(chat_id: int, preset_date: str = None):
     
     text += "Просто напишите или скажите голосом:\n"
     text += "<i>«Позвонить Иванову в 15:00»</i>\n"
-    text += "<i>«Срочно отправить КП клиенту»</i>"
+    text += "<i>«Срочно отправить КП клиенту»</i>\n\n"
+    text += "🎤 Голос работает из любого места бота!"
     
     inline_buttons = [[{"text": "❌ Отмена", "callback_data": "secretary_menu"}]]
     await send_message_inline(chat_id, text, inline_buttons)
 
 
+# DEPRECATED: process_secretary_input больше не нужен
+# GPT-роутинг обрабатывает все сообщения централизованно
 async def process_secretary_input(chat_id: int, text: str) -> bool:
     """
-    Обрабатывает текстовый/голосовой ввод для секретаря.
-    В режиме секретаря ВСЁ воспринимается как задача.
+    DEPRECATED: Эта функция больше не используется.
+    GPT Intent Router в app.py обрабатывает create_task напрямую.
+    Оставлена для обратной совместимости.
     """
-    text_lower = text.lower()
-    
-    # Запрос расписания?
-    schedule_words = ["что на сегодня", "что на завтра", "что на неделю", "мои задачи", "расписание"]
-    if any(w in text_lower for w in schedule_words):
-        if "неделю" in text_lower:
-            await handle_secretary_week(chat_id, datetime.now().strftime("%Y-%m-%d"))
-        elif "завтра" in text_lower:
-            tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
-            await handle_secretary_day(chat_id, tomorrow)
-        else:
-            await handle_secretary_day(chat_id, datetime.now().strftime("%Y-%m-%d"))
-        return True
-    
-    # Всё остальное — создание задачи
-    parsed = parse_task_with_ai(text)
-    
-    if not parsed or not parsed.get("task"):
-        await send_message(chat_id, "❌ Не удалось распознать задачу. Попробуйте иначе.")
-        return True
-    
-    # Проверяем загрузку
-    if parsed.get("date"):
-        stats = count_tasks_for_date(chat_id, parsed["date"])
-        warning = analyze_workload(stats["total"], parsed.get("priority") in ("urgent", "high"))
-    else:
-        warning = None
-    
-    # Создаём задачу
-    task_id = add_task(
-        user_id=chat_id,
-        task_text=parsed["task"],
-        due_date=parsed.get("date"),
-        due_time=parsed.get("time"),
-        client_name=parsed.get("client_name"),
-        priority=parsed.get("priority", "normal"),
-        description=parsed.get("description")
-    )
-    
-    # Формируем ответ
-    date_str = format_date_ru(parsed["date"]) if parsed.get("date") else "без даты"
-    time_str = f" в {parsed['time']}" if parsed.get("time") else ""
-    
-    response = f"✅ <b>Задача создана!</b>\n\n"
-    response += f"📌 {parsed['task']}\n"
-    response += f"📅 {date_str}{time_str}"
-    
-    if parsed.get("client_name"):
-        response += f"\n👤 {parsed['client_name']}"
-    
-    if warning:
-        response += f"\n\n{warning}"
-    
-    inline_buttons = [
-        [{"text": "📋 Посмотреть", "callback_data": f"sec_task_{task_id}"}],
-        [{"text": "📅 К расписанию", "callback_data": f"sec_day_{parsed.get('date') or datetime.now().strftime('%Y-%m-%d')}"}],
-    ]
-    
-    await send_message_inline(chat_id, response, inline_buttons)
-    return True
+    return False

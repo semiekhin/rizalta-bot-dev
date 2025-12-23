@@ -1,31 +1,28 @@
 """
 База данных для AI-секретаря.
 Хранение задач, напоминаний.
+Версия 2.0 — без режима секретаря
 """
 
 import sqlite3
 from pathlib import Path
-from datetime import datetime, date, timedelta
+from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 
 BASE_DIR = Path(__file__).parent.parent
 DB_PATH = BASE_DIR / "secretary.db"
 
-# Пользователи в режиме секретаря
-secretary_mode_users = set()
 
-
+# DEPRECATED: Режим секретаря больше не используется
+# GPT-роутинг обрабатывает все сообщения централизованно
 def is_secretary_mode(user_id: int) -> bool:
-    """Проверяет, в режиме ли секретаря пользователь."""
-    return user_id in secretary_mode_users
+    """DEPRECATED: Всегда возвращает False."""
+    return False
 
 
 def set_secretary_mode(user_id: int, enabled: bool):
-    """Включает/выключает режим секретаря."""
-    if enabled:
-        secretary_mode_users.add(user_id)
-    else:
-        secretary_mode_users.discard(user_id)
+    """DEPRECATED: Ничего не делает."""
+    pass
 
 
 def init_db():

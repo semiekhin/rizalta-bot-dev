@@ -1,17 +1,17 @@
 """
-RIZALTA Telegram Bot
-Главный файл приложения.
+RIZALTA Telegram Bot v2.0
+Главный файл приложения с GPT Intent Router.
 
-Модульная архитектура:
-- config/     - настройки
-- models/     - состояния
-- services/   - бизнес-логика
-- handlers/   - обработчики событий
+Изменения v2.0:
+- Убраны regex паттерны
+- Добавлен GPT Intent Router
+- Убран режим секретаря (не нужен)
+- Голосовые сообщения через GPT-роутинг
 """
 
-import re
+from datetime import datetime, timedelta
 from fastapi import FastAPI, Request
-from typing import Dict, Any, List
+from typing import Dict, Any
 
 # Конфигурация
 from config.settings import (
@@ -37,6 +37,9 @@ from models.state import (
 # Сервисы
 from services.telegram import send_message, send_message_inline, answer_callback_query, send_document
 from services.calculations import normalize_unit_code
+
+# Intent Router (NEW!)
+from services.intent_router import classify_intent
 
 # Обработчики
 from handlers import (
@@ -113,84 +116,7 @@ from handlers import (
 )
 
 
-app = FastAPI(title="RIZALTA Bot")
-
-
-# ====== Текстовые триггеры для контекстного поиска ======
-
-# Паттерны для презентации
-PRESENTATION_PATTERNS = [
-    r"презентаци",
-    r"скачать презент",
-    r"отправь презент",
-    r"пришли презент",
-    r"дай презент",
-    r"покажи презент",
-]
-
-# Паттерны для фиксации клиента
-FIXATION_PATTERNS = [
-    r"фиксаци",
-    r"зафиксир",
-    r"закрепи",
-    r"закрепить клиент",
-]
-
-# Паттерны для шахматки
-SHAHMATKA_PATTERNS = [
-    r"шахматк",
-    r"шахмат",
-    r"наличие",
-    r"свободные лоты",
-    r"какие лоты",
-    r"что свободно",
-    r"что есть в наличии",
-]
-
-# Паттерны для медиа
-MEDIA_PATTERNS = [
-    r"медиа",
-    r"материал",
-    r"видео",
-    r"ролик",
-]
-
-# Паттерны для записи на показ
-BOOKING_PATTERNS = [
-    r"записать",
-    r"запиши",
-    r"показ",
-    r"созвон",
-    r"встреч",
-    r"консультаци",
-    r"связаться",
-    r"позвони",
-    r"перезвони",
-]
-
-# Паттерны для договоров
-DOCS_PATTERNS = [
-    r"договор",
-    r"дду",
-    r"аренд",
-    r"документ",
-]
-
-# Паттерны для КП
-KP_PATTERNS = [
-    r"коммерческ",
-    r"\bкп\b",
-    r"предложени",
-]
-
-
-def match_patterns(text: str, patterns: list) -> bool:
-    """Проверяет совпадение текста с паттернами."""
-    text_lower = text.lower()
-    for pattern in patterns:
-        if re.search(pattern, text_lower):
-            return True
-    return False
+app = FastAPI(title="RIZALTA Bot v2.0")
 
 
 # ====== Health check ======
@@ -198,7 +124,7 @@ def match_patterns(text: str, patterns: list) -> bool:
 @app.get("/")
 async def health():
     """Health check."""
-    return {"ok": True, "bot": "RIZALTA"}
+    return {"ok": True, "bot": "RIZALTA", "version": "2.0"}
 
 
 # ====== Telegram Webhook ======
@@ -259,6 +185,7 @@ async def process_callback(callback: Dict[str, Any]):
     chat_id = message.get("chat", {}).get("id")
     from_user = callback.get("from", {})
     username = from_user.get("username", "")
+    user_info = from_user
     
     if not chat_id:
         return
@@ -378,35 +305,30 @@ async def process_callback(callback: Dict[str, Any]):
         await handle_kp_by_budget_menu(chat_id)
     
     elif data.startswith("kp_area_"):
-        # kp_area_22_25 -> min=22, max=25
         from handlers.kp import handle_kp_area_range
         parts = data.replace("kp_area_", "").split("_")
         min_area, max_area = float(parts[0]), float(parts[1])
         await handle_kp_area_range(chat_id, min_area, max_area)
     
     elif data.startswith("kp_budget_"):
-        # kp_budget_15_18 -> min=15, max=18
         from handlers.kp import handle_kp_budget_range
         parts = data.replace("kp_budget_", "").split("_")
         min_budget, max_budget = int(parts[0]), int(parts[1])
         await handle_kp_budget_range(chat_id, min_budget, max_budget)
     
     elif data.startswith("kp_send_"):
-        # kp_send_273 -> отправить КП (273 = area * 10)
         from handlers.kp import handle_kp_send_one
         area_str = data.replace("kp_send_", "")
         area = int(area_str) / 10.0 if area_str.isdigit() else 0
         await handle_kp_send_one(chat_id, area=area)
     
     elif data.startswith("kp_show_area_"):
-        # kp_show_area_22_30 -> показать все лоты по площади
         from handlers.kp import handle_kp_show_all_area
         parts = data.replace("kp_show_area_", "").split("_")
         min_area, max_area = float(parts[0]), float(parts[1])
         await handle_kp_show_all_area(chat_id, min_area, max_area)
     
     elif data.startswith("kp_show_budget_"):
-        # kp_show_budget_15_18 -> показать все лоты по бюджету
         from handlers.kp import handle_kp_show_all_budget
         parts = data.replace("kp_show_budget_", "").split("_")
         min_budget, max_budget = int(parts[0]), int(parts[1])
@@ -422,7 +344,7 @@ async def process_callback(callback: Dict[str, Any]):
         parts = data.replace("kp_gen_", "").rsplit("_", 1)
         if len(parts) == 2:
             area_x10 = int(parts[0])
-            mode = parts[1]  # "100", "12", или "24"
+            mode = parts[1]
             await handle_kp_generate_pdf(chat_id, area_x10, mode)
 
     # ===== Документы =====
@@ -499,6 +421,7 @@ async def process_callback(callback: Dict[str, Any]):
         parts = data.replace("calc_fin_show_budget_", "").split("_")
         min_budget, max_budget = int(parts[0]), int(parts[1])
         await handle_calc_finance_show_all_budget(chat_id, min_budget, max_budget)
+
     elif data.startswith("calc_fin_area_"):
         parts = data.replace("calc_fin_area_", "").split("_")
         min_area, max_area = float(parts[0]), float(parts[1])
@@ -714,8 +637,10 @@ async def process_callback(callback: Dict[str, Any]):
         from handlers.booking_fixation import handle_booking_skip_comment
         await handle_booking_skip_comment(chat_id, from_user.get("id", chat_id))
 
+
 # Кеш подборок domoplaner
 domoplaner_cache = {}
+
 
 async def handle_domoplaner_link(chat_id: int, url: str):
     """Обрабатывает ссылку на подборку domoplaner."""
@@ -745,253 +670,118 @@ async def handle_domoplaner_link(chat_id: int, url: str):
     
     await send_message_inline(chat_id, text, buttons)
 
-async def process_message(chat_id: int, text: str, user_info: Dict[str, Any]):
-    """Главный роутер текстовых сообщений."""
-    
-    # ===== Проверка кнопок главного меню =====
-    # При нажатии сбрасываем состояния
-    is_main_menu_button = any(btn in text for btn in MAIN_MENU_TRIGGER_TEXTS)
-    
-    if is_main_menu_button:
-        clear_dialog_state(chat_id)
-    
 
-    # ===== Обработка ввода фиксации =====
-    from handlers.booking_fixation import handle_booking_input, has_active_booking_state
-    if has_active_booking_state(user_info.get("id", chat_id)):
-        user_id = user_info.get("id", chat_id)
-        handled = await handle_booking_input(chat_id, user_id, text)
-        if handled:
-            return
+# ====== GPT INTENT HANDLER ======
+
+async def handle_intent(chat_id: int, intent_result: Dict[str, Any], user_info: Dict[str, Any]):
+    """
+    Диспетчер намерений — направляет на нужный handler.
+    """
+    intent = intent_result.get("intent", "chat")
+    params = intent_result.get("params", {})
+    original_text = intent_result.get("original_text", "")
     
-    # ===== AI-Секретарь (проверка режима) =====
-    from services.secretary_db import is_secretary_mode, set_secretary_mode
-    if is_secretary_mode(chat_id):
-        # Если нажата кнопка главного меню — выходим из режима
-        if is_main_menu_button:
-            set_secretary_mode(chat_id, False)
-        else:
-            handled = await process_secretary_input(chat_id, text)
-            if handled:
-                return
+    print(f"[ROUTER] Intent: {intent}, Params: {params}")
     
-    # ===== Команды =====
-    if text == "/help":
+    # === НАВИГАЦИЯ ===
+    
+    if intent == "start":
+        await handle_start(chat_id, "/start", user_info)
+        return
+    
+    if intent == "help":
         await handle_help(chat_id)
         return
     
-    if text == "/myid":
+    if intent == "myid":
         await handle_myid(chat_id, user_info)
         return
     
-    
-    if text.startswith("/start"):
-        await handle_start(chat_id, text, user_info)
+    if intent in ("back", "main_menu"):
+        await handle_main_menu(chat_id)
         return
     
-    # ===== Ссылки domoplaner =====
-    from services.domoplaner_parser import is_domoplaner_link, parse_domoplaner_set
-    domo_url = is_domoplaner_link(text)
-    if domo_url:
-        await handle_domoplaner_link(chat_id, domo_url)
-        return
-    
-    # ===== Кнопка Назад =====
-    
-    if text in ("🔙 Назад", "⬅️ Назад", "Назад"):
-        await handle_back(chat_id)
-        return
-    
-    # ===== Диалоговые состояния =====
-    
-    state = get_dialog_state(chat_id)
-    
-    # Подбор лота: ввод бюджета
-    if state == DialogStates.CHOOSE_UNIT_ASK_BUDGET and not is_main_menu_button:
-        await handle_budget_input(chat_id, text)
-        return
-    
-    # Подбор лота: выбор формата
-    if state == DialogStates.CHOOSE_UNIT_ASK_FORMAT and not is_main_menu_button:
-        await handle_format_input(chat_id, text)
-        return
-    
-    # Запись на показ: ввод контакта
-    if state == DialogStates.ASK_CONTACT_FOR_CALLBACK and not is_main_menu_button:
-        if text == "✍️ Ввести вручную":
-            await send_message(chat_id, "Напишите ваш телефон или @username:")
-            return
-        await handle_quick_contact(chat_id, text)
-        return
-    
-    # Многошаговая запись
-    if is_in_booking_flow(chat_id) and not text.startswith("/") and not is_main_menu_button:
-        await handle_booking_step(chat_id, text)
-        return
-    
-    # Выбор юнита для ROI
-    if state == DialogStates.CHOOSE_ROI_UNIT:
-        normalized = normalize_unit_code(text)
-        if normalized in ["A209", "B210", "A305"]:
-            await handle_base_roi(chat_id, unit_code=text)
-            return
-    
-    # Выбор юнита для рассрочки
-    if state == DialogStates.CHOOSE_FINANCE_UNIT:
-        normalized = normalize_unit_code(text)
-        if normalized in ["A209", "B210", "A305"]:
-            await handle_finance_overview(chat_id, unit_code=text)
-            return
-    
-    # Выбор юнита для планировки
-    if state == DialogStates.CHOOSE_PLAN_UNIT:
-        normalized = normalize_unit_code(text)
-        if normalized in ["A209", "B210", "A305"]:
-            await handle_layouts(chat_id, unit_code=text)
-            return
-    
-    # Запрос КП
-    if state == DialogStates.AWAIT_KP_REQUEST and not is_main_menu_button:
-        await handle_kp_request(chat_id, text)
-        return
-    
-    # ===== Кнопки главного меню =====
-    
-    if "📖 О проекте" in text or text == "О проекте":
+    if intent == "about_project":
         await handle_about_project(chat_id)
         return
     
-    if "💰 Расчёты" in text or text == "Расчёты":
+    if intent == "calculations_menu":
         await handle_calculations_menu_new(chat_id)
         return
-
-    if "📊 Сравнение" in text or "депозит" in text.lower():
+    
+    # === КП ===
+    
+    if intent in ("kp_menu", "get_kp"):
+        from handlers.kp import (
+            handle_kp_menu, handle_kp_area_range, 
+            handle_kp_budget_range, handle_kp_send_one
+        )
+        from services.units_db import get_lot_by_code
+        
+        area = params.get("area")
+        budget = params.get("budget")
+        code = params.get("code")
+        
+        if code:
+            lot = get_lot_by_code(code)
+            if lot:
+                await handle_kp_send_one(chat_id, area=lot["area"])
+            else:
+                await send_message(chat_id, f"❌ Лот {code} не найден")
+            return
+        
+        if area:
+            await handle_kp_area_range(chat_id, area - 2, area + 2)
+            return
+        
+        if budget:
+            min_b = int(budget * 0.9 / 1_000_000)
+            max_b = int(budget * 1.1 / 1_000_000)
+            await handle_kp_budget_range(chat_id, min_b, max_b)
+            return
+        
+        await handle_kp_menu(chat_id)
+        return
+    
+    # === РАСЧЁТЫ ===
+    
+    if intent == "calculate_roi":
+        area = params.get("area")
+        unit_code = params.get("unit_code")
+        
+        if area:
+            await handle_calc_roi_lot(chat_id, area)
+        elif unit_code:
+            await handle_base_roi(chat_id, unit_code=unit_code)
+        else:
+            await handle_calc_roi_menu(chat_id)
+        return
+    
+    if intent == "show_installment":
+        area = params.get("area")
+        unit_code = params.get("unit_code")
+        
+        if area:
+            await handle_calc_finance_lot(chat_id, area)
+        elif unit_code:
+            await handle_finance_overview(chat_id, unit_code=unit_code)
+        else:
+            await handle_calc_finance_menu(chat_id)
+        return
+    
+    if intent in ("compare_deposit", "compare_menu"):
         from handlers.compare import handle_compare_menu
         await handle_compare_menu(chat_id)
         return
     
-    if "📋 КП (JPG)" in text:
-        await handle_kp_menu(chat_id)
-        return
+    # === ФИКСАЦИЯ И ШАХМАТКА ===
     
-    if "🎯 Подобрать лот" in text or "Выбрать лот" in text or "🧩 Выбрать лот" in text:
-        await handle_select_lot(chat_id)
-        return
-    
-    if "🔥 Записаться на онлайн-показ" in text or "📅 Записаться на онлайн показ" in text:
-        from handlers.booking_calendar import handle_booking_start
-        await handle_booking_start(chat_id)
-        return
-    
-    if "📄 Договоры" in text:
-        from handlers.docs import handle_documents_menu
-        await handle_documents_menu(chat_id)
-        return
-    
-    # ===== Кнопки с внешними ссылками =====
-    
-    if "📌 Фиксация" in text:
-        from handlers.booking_fixation import handle_booking_menu, has_active_booking_state
-        await handle_booking_menu(chat_id, user_info.get("id", chat_id))
-        return
-    
-    if "🏠 Шахматка" in text:
-        inline_buttons = [
-            [{"text": "🔗 Открыть шахматку", "url": LINK_SHAHMATKA}]
-        ]
-        await send_message_inline(
-            chat_id,
-            "🏠 <b>Шахматка</b>\n\nНажмите кнопку ниже, чтобы открыть шахматку с актуальными лотами:",
-            inline_buttons
-        )
-        return
-    
-    if "🗓 Секретарь" in text:
-        await handle_secretary_menu(chat_id)
-        return
-    
-    if "📰 Новости" in text:
-        from handlers.news import handle_news_menu
-        await handle_news_menu(chat_id)
-        return
-
-    if "🎬 Медиа" in text:
-        await handle_media_menu(chat_id)
-        return
-    
-    # ===== Подменю "О проекте" =====
-    
-    if "Почему RIZALTA" in text or "✨ Почему RIZALTA" in text:
-        await handle_why_rizalta(chat_id)
-        return
-    
-    if "Почему Алтай" in text or "🏔 Почему Алтай" in text or "ℹ️ Почему Алтай" in text:
-        await handle_why_altai(chat_id)
-        return
-    
-    if "Об архитекторе" in text or "👨‍🎨 Об архитекторе" in text:
-        await handle_architect(chat_id)
-        return
-    
-    # ===== Подменю "Расчёты" =====
-    
-    if "📊 Рентабельность/доходность" in text or "📊 Расчёт доходности" in text:
-        await handle_choose_unit_for_roi(chat_id)
-        return
-    
-    if "💳 Рассрочка и ипотека" in text:
-        await handle_choose_unit_for_finance(chat_id)
-        return
-    
-    # ===== Подменю "Медиа" =====
-    
-    if "📊 Презентация" in text:
-        await handle_send_presentation(chat_id)
-        return
-    
-    # ===== Выбор юнита по кнопкам =====
-    
-    if text in ["A209", "B210", "A305"]:
-        state = get_dialog_state(chat_id)
-        
-        if state == DialogStates.CHOOSE_ROI_UNIT:
-            await handle_base_roi(chat_id, unit_code=text)
-            return
-        
-        if state == DialogStates.CHOOSE_FINANCE_UNIT:
-            await handle_finance_overview(chat_id, unit_code=text)
-            return
-        
-        if state == DialogStates.CHOOSE_PLAN_UNIT:
-            await handle_layouts(chat_id, unit_code=text)
-            return
-        
-        # Без состояния — игнорируем
-        return
-    
-    # ===== Контекстный поиск по тексту =====
-    
-    # Презентация
-    if match_patterns(text, PRESENTATION_PATTERNS):
-        inline_buttons = [
-            [{"text": "📥 Скачать презентацию", "callback_data": "media_presentation"}],
-            [{"text": "🔙 В меню", "callback_data": "back_to_menu"}]
-        ]
-        await send_message_inline(
-            chat_id,
-            "📊 <b>Презентация проекта RIZALTA</b>\n\nГотов отправить презентацию в PDF формате.",
-            inline_buttons
-        )
-        return
-    
-    # Фиксация клиента
-    if match_patterns(text, FIXATION_PATTERNS):
+    if intent == "open_fixation":
         from handlers.booking_fixation import handle_booking_menu
         await handle_booking_menu(chat_id, user_info.get("id", chat_id))
         return
     
-    # Шахматка
-    if match_patterns(text, SHAHMATKA_PATTERNS):
+    if intent == "open_shahmatka":
         inline_buttons = [
             [{"text": "🏠 Открыть шахматку", "url": LINK_SHAHMATKA}],
             [{"text": "🔙 В меню", "callback_data": "back_to_menu"}]
@@ -1003,50 +793,197 @@ async def process_message(chat_id: int, text: str, user_info: Dict[str, Any]):
         )
         return
     
-    # Медиа
-    if match_patterns(text, MEDIA_PATTERNS):
-        await handle_media_menu(chat_id)
+    # === ЗАПИСИ ===
+    
+    if intent == "book_showing":
+        from handlers.booking_calendar import handle_booking_start
+        await handle_booking_start(chat_id)
         return
     
-    # Запись на показ
-    if match_patterns(text, BOOKING_PATTERNS):
-        inline_buttons = [
-            [{"text": "🔥 Записаться на показ", "callback_data": "online_show"}],
-            [{"text": "🔙 В меню", "callback_data": "back_to_menu"}]
-        ]
-        await send_message_inline(
-            chat_id,
-            "📅 <b>Запись на онлайн-показ</b>\n\nХотите записаться на онлайн-показ с менеджером проекта?",
-            inline_buttons
-        )
-        return
+    # === ДОКУМЕНТЫ И МЕДИА ===
     
-    # Договоры
-    if match_patterns(text, DOCS_PATTERNS):
+    if intent == "documents_menu":
         from handlers.docs import handle_documents_menu
         await handle_documents_menu(chat_id)
         return
     
-    # КП
-    if match_patterns(text, KP_PATTERNS):
-        inline_buttons = [
-            [{"text": "📋 Открыть меню КП", "callback_data": "kp_menu"}],
-            [{"text": "🔙 В меню", "callback_data": "back_to_menu"}]
-        ]
-        await send_message_inline(
-            chat_id,
-            "📋 <b>Коммерческие предложения</b>\n\nМогу отправить КП по площади или бюджету:",
-            inline_buttons
-        )
+    if intent == "send_documents":
+        from handlers.docs import handle_send_ddu, handle_send_arenda, handle_send_all_docs
+        
+        doc_type = params.get("doc_type", "all")
+        if doc_type == "ddu":
+            await handle_send_ddu(chat_id)
+        elif doc_type == "arenda":
+            await handle_send_arenda(chat_id)
+        else:
+            await handle_send_all_docs(chat_id)
         return
     
-    # ===== Свободный текст → AI =====
+    if intent == "send_presentation":
+        await handle_send_presentation(chat_id)
+        return
     
-    await handle_free_text(chat_id, text)
+    if intent == "show_media":
+        await handle_media_menu(chat_id)
+        return
+    
+    # === СЕКРЕТАРЬ ===
+    
+    if intent == "secretary_menu":
+        await handle_secretary_menu(chat_id)
+        return
+    
+    if intent == "create_task":
+        from services.secretary_db import add_task, count_tasks_for_date
+        from services.secretary_ai import analyze_workload
+        from handlers.secretary import format_date_ru
+        
+        task_text = params.get("task", "Задача без описания")
+        task_date = params.get("date")
+        task_time = params.get("time")
+        client_name = params.get("client_name")
+        priority = params.get("priority", "normal")
+        
+        task_id = add_task(
+            user_id=chat_id,
+            task_text=task_text,
+            due_date=task_date,
+            due_time=task_time,
+            client_name=client_name,
+            priority=priority
+        )
+        
+        warning = None
+        if task_date:
+            stats = count_tasks_for_date(chat_id, task_date)
+            warning = analyze_workload(stats["total"], priority in ("urgent", "high"))
+        
+        date_str = format_date_ru(task_date) if task_date else "без даты"
+        time_str = f" в {task_time}" if task_time else ""
+        
+        response = f"✅ <b>Задача создана!</b>\n\n"
+        response += f"📌 {task_text}\n"
+        response += f"📅 {date_str}{time_str}"
+        
+        if client_name:
+            response += f"\n👤 {client_name}"
+        
+        if warning:
+            response += f"\n\n{warning}"
+        
+        inline_buttons = [
+            [{"text": "📋 Посмотреть", "callback_data": f"sec_task_{task_id}"}],
+            [{"text": "📅 К расписанию", "callback_data": f"sec_day_{task_date or datetime.now().strftime('%Y-%m-%d')}"}],
+        ]
+        
+        await send_message_inline(chat_id, response, inline_buttons)
+        return
+    
+    if intent == "show_schedule":
+        period = params.get("period", "today")
+        
+        if period == "week":
+            today = datetime.now()
+            monday = today - timedelta(days=today.weekday())
+            await handle_secretary_week(chat_id, monday.strftime("%Y-%m-%d"))
+        elif period == "tomorrow":
+            tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+            await handle_secretary_day(chat_id, tomorrow)
+        else:
+            await handle_secretary_day(chat_id, datetime.now().strftime("%Y-%m-%d"))
+        return
+    
+    # === НОВОСТИ ===
+    
+    if intent == "show_news":
+        from handlers.news import (
+            handle_news_menu, handle_currency_rates, 
+            handle_weather, handle_flights, handle_news_digest
+        )
+        
+        news_type = params.get("type")
+        
+        if news_type == "currency":
+            await handle_currency_rates(chat_id)
+        elif news_type == "weather":
+            await handle_weather(chat_id)
+        elif news_type == "flights":
+            await handle_flights(chat_id)
+        elif news_type == "digest":
+            await handle_news_digest(chat_id)
+        else:
+            await handle_news_menu(chat_id)
+        return
+    
+    # === FALLBACK: AI CHAT ===
+    await handle_free_text(chat_id, original_text)
+
+
+# ====== ГЛАВНЫЙ РОУТЕР СООБЩЕНИЙ (v2.0) ======
+
+async def process_message(chat_id: int, text: str, user_info: Dict[str, Any]):
+    """
+    Новый роутер сообщений с GPT Intent Classification.
+    Версия 2.0 — без regex паттернов.
+    """
+    
+    # === Обработка диалоговых состояний (фиксация) ===
+    from handlers.booking_fixation import handle_booking_input, has_active_booking_state
+    if has_active_booking_state(user_info.get("id", chat_id)):
+        user_id = user_info.get("id", chat_id)
+        handled = await handle_booking_input(chat_id, user_id, text)
+        if handled:
+            return
+    
+    # === Обработка других активных состояний ===
+    state = get_dialog_state(chat_id)
+    
+    if state == DialogStates.CHOOSE_UNIT_ASK_BUDGET:
+        await handle_budget_input(chat_id, text)
+        return
+    
+    if state == DialogStates.CHOOSE_UNIT_ASK_FORMAT:
+        await handle_format_input(chat_id, text)
+        return
+    
+    if state == DialogStates.ASK_CONTACT_FOR_CALLBACK:
+        if text == "✍️ Ввести вручную":
+            await send_message(chat_id, "Напишите ваш телефон или @username:")
+            return
+        await handle_quick_contact(chat_id, text)
+        return
+    
+    if is_in_booking_flow(chat_id):
+        await handle_booking_step(chat_id, text)
+        return
+    
+    if state == DialogStates.AWAIT_KP_REQUEST:
+        await handle_kp_request(chat_id, text)
+        return
+    
+    # === Ссылки domoplaner ===
+    from services.domoplaner_parser import is_domoplaner_link
+    domo_url = is_domoplaner_link(text)
+    if domo_url:
+        await handle_domoplaner_link(chat_id, domo_url)
+        return
+    
+    # === GPT INTENT CLASSIFICATION ===
+    intent_result = classify_intent(text)
+    intent_result["original_text"] = text
+    
+    # Сбрасываем состояние при уверенной классификации
+    if intent_result.get("confidence", 0) > 0.7:
+        clear_dialog_state(chat_id)
+    
+    # Направляем на handler
+    await handle_intent(chat_id, intent_result, user_info)
 
 
 async def process_voice_message(chat_id: int, voice: Dict[str, Any], user_info: Dict[str, Any]):
-    """Обработка голосового сообщения через Whisper API."""
+    """
+    Обработка голосового сообщения через GPT-роутинг.
+    """
     from services.telegram import download_file
     from services.speech import transcribe_voice
     
@@ -1054,10 +991,8 @@ async def process_voice_message(chat_id: int, voice: Dict[str, Any], user_info: 
     if not file_id:
         return
     
-    # Уведомляем пользователя
     await send_message(chat_id, "🎤 Распознаю голосовое сообщение...")
     
-    # Скачиваем файл
     save_path = f"/tmp/voice_{chat_id}_{file_id}.ogg"
     downloaded = await download_file(file_id, save_path)
     
@@ -1065,17 +1000,15 @@ async def process_voice_message(chat_id: int, voice: Dict[str, Any], user_info: 
         await send_message(chat_id, "❌ Не удалось обработать голосовое сообщение. Попробуйте ещё раз.")
         return
     
-    # Распознаём речь
     text = transcribe_voice(save_path)
     
     if not text:
         await send_message(chat_id, "❌ Не удалось распознать речь. Попробуйте ещё раз или напишите текстом.")
         return
     
-    # Показываем распознанный текст
     await send_message(chat_id, f"📝 Распознано: <i>{text}</i>")
     
-    # Обрабатываем как обычное сообщение
+    # Обрабатываем через GPT-роутер
     await process_message(chat_id, text, user_info)
 
 
