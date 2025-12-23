@@ -23,7 +23,8 @@ https://raw.githubusercontent.com/semiekhin/developer-standards/main/DEV_STANDAR
 |----------|----------|
 | Проект | RIZALTA AI SYSTEM — AI-консультант для риэлторов |
 | Продукт | Инвестиционная недвижимость RIZALTA Resort Belokurikha (Алтай) |
-| Версия | 1.9.6 |
+| Версия DEV | 2.0.1 |
+| Версия PROD | 2.0.0 |
 | Стек | Python 3.12 · FastAPI · OpenAI GPT-4o-mini · Whisper · SQLite |
 | Prod бот | @RealtMeAI_bot |
 | Dev бот | @rizaltatestdevop_bot |
@@ -59,19 +60,24 @@ ssh -p 2222 root@72.56.64.91
 ## 🏗️ АРХИТЕКТУРА
 ```
 rizalta-bot/
-├── app.py                 # Webhook, роутинг callback'ов
+├── app.py                 # Webhook, GPT Intent Router
 ├── run_polling.py         # Dev режим
 ├── handlers/              # Обработчики команд
 │   ├── menu.py            # Главное меню
 │   ├── ai_chat.py         # AI диалоги (GPT + Whisper)
 │   ├── kp.py              # Коммерческие предложения
+│   ├── secretary.py       # AI-Секретарь (NEW v2.0)
 │   ├── media.py           # Презентации, видео
 │   ├── compare.py         # Сравнение депозит vs RIZALTA
 │   ├── booking_fixation.py # Фиксация клиентов
 │   └── news.py            # Инвест-дайджест
 ├── services/              # Бизнес-логика
+│   ├── intent_router.py   # GPT Intent Router (NEW v2.0)
+│   ├── secretary_ai.py    # GPT парсинг задач (NEW v2.0)
+│   ├── secretary_db.py    # SQLite для задач (NEW v2.0)
 │   ├── telegram.py        # Telegram API
 │   ├── kp_pdf_generator.py # Генератор PDF КП
+│   ├── calc_universal.py  # Расчёты рассрочки
 │   ├── calculations.py    # Финансовые расчёты
 │   └── rclick_service.py  # Интеграция ri.rclick.ru
 ├── data/                  # Данные
@@ -88,6 +94,7 @@ rizalta-bot/
 **Dev:**
 ```bash
 cd /opt/bot-dev
+source venv/bin/activate
 systemctl restart rizalta-bot-dev
 journalctl -u rizalta-bot-dev -f
 ```
@@ -95,6 +102,7 @@ journalctl -u rizalta-bot-dev -f
 **Prod:**
 ```bash
 cd /opt/bot
+source venv/bin/activate
 systemctl restart rizalta-bot
 journalctl -u rizalta-bot -f
 ```
@@ -121,9 +129,10 @@ systemctl restart rizalta-bot
 | Метрика | Значение |
 |---------|----------|
 | Квартир в базе | 369 |
-| Типов КП | 3 (100%, 12 мес, 12+24 мес) |
+| Типов КП | 3 (100%, 12 мес, 12+18 мес) |
 | Презентаций | 6 |
 | Видео | 9 |
+| Intent'ов GPT | 15+ |
 | Uptime | Мониторинг каждые 5 мин |
 
 ---
@@ -142,63 +151,99 @@ systemctl restart rizalta-bot
 ## 📝 TASKS
 
 ### Сейчас
-- [ ] Личный планировщик задач с AI (голосовой ввод)
+- [x] GPT Intent Router — голосовые из любого меню ✅
+- [x] AI-Секретарь — личный планировщик задач ✅
+- [ ] ⚠️ Деплой v2.0.1 в prod (изменения процентов рассрочки)
 
 ### Backlog
+- [ ] APScheduler для напоминаний секретаря
+- [ ] Утренний дайджест (TTS)
 - [ ] Специалисты для календаря (реальные ФИО, telegram_id)
 - [ ] UptimeRobot (внешний мониторинг)
 - [ ] Синхронизация данных между dev/prod
-- [ ] Мазок кисти brush_stroke для КП (подготовлен, отключён)
-- [ ] Внутренняя коммуникация между менеджерами
 
 ### Сделано (последние)
+- [x] v2.0.1: Рассрочка 24→18 мес, проценты: 30%→+9%, 40%→+7%, 50%→+4%
+- [x] v2.0.0: GPT Intent Router, AI-Секретарь, голос из любого меню
 - [x] v1.9.6: Презентации (6 шт), Видео (9 шт), новый дизайн КП 100%
-- [x] v1.9.5: КП 3 варианта, фиксация клиентов, сравнение депозит vs RIZALTA
 
 ---
 
 ## 📜 CHANGELOG
 
+**v2.0.1 (23.12.2025) — ТОЛЬКО DEV, НЕ ЗАДЕПЛОЕНО В PROD**
+- Рассрочка 24 месяца → 18 месяцев
+- Новые проценты удорожания: ПВ30%→+9%, ПВ40%→+7%, ПВ50%→+4%
+- Обновлены: kp_pdf_generator.py, calc_universal.py, calculations.py
+- Файлы КП: _12m_24m → _12m_18m
+
+**v2.0.0 (23.12.2025) — ЗАДЕПЛОЕНО В PROD**
+- GPT Intent Router — единая классификация всех сообщений
+- Метазнания о боте в services/intent_router.py
+- 15+ intent'ов: КП, расчёты, фиксация, шахматка, секретарь, новости
+- AI-Секретарь — личный планировщик с голосовым вводом
+- Голосовые команды работают из любого меню бота
+- Убраны regex паттерны из app.py
+- Убран режим секретаря (не нужен с GPT-роутингом)
+
 **v1.9.6 (19.12.2025)**
 - Презентации проекта: 6 документов с меню выбора
 - Видео про Алтай: 9 видео (сжаты до <50 МБ)
 - КП 100%: новый двухколоночный дизайн с блоком выгоды
-- Исправлены тексты: "11 платежей", "24 платежа"
 
 **v1.9.5 (18.12.2025)**
 - КП: 3 варианта (100%, 12 мес, 12+24 мес)
 - Фиксация клиентов через ri.rclick.ru
 - Сравнение депозит vs RIZALTA (данные ЦБ РФ)
 
-**v1.9.4 (11-12.12.2025)**
-- Excel генератор ROI
-- SSH безопасность (порт 2222, ключи)
-- Health check мониторинг
-
 ---
 
 ## 🔄 HANDOFF
 
-### Последняя сессия: 19.12.2025
+### Последняя сессия: 23.12.2025
 
 **Что сделали:**
-- Добавили 6 презентаций в меню Медиа
-- Добавили 9 видео про Алтай (сжаты ffmpeg до <50 МБ)
-- Новый дизайн КП при 100% оплате (двухколоночный layout)
-- Функция send_video в telegram.py
-- Исправили баг: send_document был обрезан при добавлении send_video
+
+1. **GPT Intent Router v2.0.0** (задеплоено в prod)
+   - Единая GPT классификация всех сообщений (голос + текст)
+   - Метазнания о боте в services/intent_router.py
+   - 15+ intent'ов с правилами приоритета
+   - Голосовые команды работают из любого меню
+   - "открой шахматку" → шахматка (не задача!)
+   - Убраны regex паттерны, убран режим секретаря
+
+2. **AI-Секретарь** (задеплоен в prod)
+   - handlers/secretary.py — UI
+   - services/secretary_ai.py — GPT парсинг задач
+   - services/secretary_db.py — SQLite хранение
+   - Кнопка "🗓 Секретарь" в главном меню
+
+3. **Рассрочка v2.0.1** (⚠️ ТОЛЬКО DEV, НЕ ЗАДЕПЛОЕНО)
+   - 24 месяца → 18 месяцев
+   - Проценты: ПВ30%→+9%, ПВ40%→+7%, ПВ50%→+4%
+   - Обновлены: kp_pdf_generator.py, calc_universal.py, calculations.py, handlers/kp.py
 
 **Текущее состояние:**
-- ✅ Dev протестирован, работает
-- ✅ Prod задеплоен, работает
-- ✅ Git синхронизирован (оба репо)
+- ✅ Dev v2.0.1 — протестирован, работает
+- ✅ Prod v2.0.0 — работает (GPT Router + Секретарь)
+- ⚠️ Prod НЕ имеет изменений рассрочки (18 мес, новые проценты)
+- ✅ Git dev синхронизирован
 
-**Что дальше:**
-- Обсудили концепцию личного AI планировщика задач
-- Обсудили идею внутренней коммуникации между менеджерами
+**Что нужно сделать:**
+1. Деплой v2.0.1 в prod (изменения рассрочки)
+2. APScheduler для напоминаний секретаря
+3. Утренний дайджест
 
-**Открытые вопросы:**
-- Планировщик задач — UI/UX продуман, нужно решить делаем или нет
+**Файлы для деплоя v2.0.1:**
+```bash
+cp /opt/bot-dev/services/kp_pdf_generator.py /opt/bot/services/
+cp /opt/bot-dev/services/calc_universal.py /opt/bot/services/
+cp /opt/bot-dev/services/calculations.py /opt/bot/services/
+cp /opt/bot-dev/handlers/kp.py /opt/bot/handlers/
+cp /opt/bot-dev/handlers/domoplaner.py /opt/bot/handlers/
+cp /opt/bot-dev/app.py /opt/bot/
+systemctl restart rizalta-bot
+```
 
 ---
 
@@ -209,8 +254,19 @@ systemctl restart rizalta-bot
 - https://raw.githubusercontent.com/semiekhin/rizalta-bot-dev/main/CLAUDE.md
 - https://raw.githubusercontent.com/semiekhin/rizalta-bot-dev/main/PROJECT_HISTORY.md
 
-**Ключевые файлы:**
+**Ключевые файлы v2.0:**
 - https://raw.githubusercontent.com/semiekhin/rizalta-bot-dev/main/app.py
+- https://raw.githubusercontent.com/semiekhin/rizalta-bot-dev/main/services/intent_router.py
+- https://raw.githubusercontent.com/semiekhin/rizalta-bot-dev/main/handlers/secretary.py
+- https://raw.githubusercontent.com/semiekhin/rizalta-bot-dev/main/services/secretary_ai.py
+- https://raw.githubusercontent.com/semiekhin/rizalta-bot-dev/main/services/secretary_db.py
+
+**КП и расчёты:**
 - https://raw.githubusercontent.com/semiekhin/rizalta-bot-dev/main/handlers/kp.py
 - https://raw.githubusercontent.com/semiekhin/rizalta-bot-dev/main/services/kp_pdf_generator.py
+- https://raw.githubusercontent.com/semiekhin/rizalta-bot-dev/main/services/calc_universal.py
+- https://raw.githubusercontent.com/semiekhin/rizalta-bot-dev/main/services/calculations.py
+
+**Остальные:**
 - https://raw.githubusercontent.com/semiekhin/rizalta-bot-dev/main/services/telegram.py
+- https://raw.githubusercontent.com/semiekhin/rizalta-bot-dev/main/config/settings.py
