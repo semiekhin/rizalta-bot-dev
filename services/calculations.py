@@ -510,7 +510,7 @@ def generate_finance_text(unit_code: str, finance: dict) -> str:
     
     # Группируем по срокам
     programs_12m = [p for p in installment_programs if p.get("months") == 12]
-    programs_24m = [p for p in installment_programs if p.get("months") == 24]
+    programs_18m = [p for p in installment_programs if p.get("months") == 18]
     
     # Рассрочка 12 месяцев
     if programs_12m:
@@ -530,11 +530,11 @@ def generate_finance_text(unit_code: str, finance: dict) -> str:
                 lines.append(f"• ПВ {pv_pct}% ({fmt_rub(pv_rub)}): далее ~{fmt_rub(monthly)}/мес")
         lines.append("")
     
-    # Рассрочка 24 месяца
-    if programs_24m:
-        lines.append("<b>3️⃣ Рассрочка на 24 месяца (с удорожанием)</b>")
+    # Рассрочка 18 месяцев
+    if programs_18m:
+        lines.append("<b>3️⃣ Рассрочка на 18 месяцев (с удорожанием)</b>")
         lines.append("")
-        for prog in programs_24m:
+        for prog in programs_18m:
             pv_pct = prog.get("first_payment_pct", 30)
             pv_rub = round(price * pv_pct / 100)
             rate = prog.get("rate_pct", 0)
@@ -683,8 +683,8 @@ def generate_investment_pdf(budget_rub: int, chat_id: int, username: str = "") -
     # Расчёты
     remaining = max(0, best["total_price"] - budget_rub)
     monthly_12 = round(remaining / 12 / 1000) * 1000 if remaining > 0 else 0
-    monthly_24 = round(remaining * 1.06 / 24 / 1000) * 1000 if remaining > 0 else 0
-    overpay_24 = round((remaining * 0.06) / 1000) * 1000 if remaining > 0 else 0
+    monthly_18 = round(remaining * 1.04 / 18 / 1000) * 1000 if remaining > 0 else 0
+    overpay_18 = round((remaining * 0.04) / 1000) * 1000 if remaining > 0 else 0
     
     mortgage = finance.get("mortgage_programs", [])
     mortgage_payment = 0
@@ -832,8 +832,8 @@ def generate_investment_pdf(budget_rub: int, chat_id: int, username: str = "") -
         draw_text(f"~{monthly_12:,} ₽/мес".replace(",", " "), 90, 10)
         next_line(6)
         
-        draw_text("Рассрочка 24 мес (+6%):", 20, 10, bold=True)
-        draw_text(f"~{monthly_24:,} ₽/мес, переплата ~{overpay_24:,} ₽".replace(",", " "), 90, 10)
+        draw_text("Рассрочка 18 мес (+4%):", 20, 10, bold=True)
+        draw_text(f"~{monthly_18:,} ₽/мес, переплата ~{overpay_18:,} ₽".replace(",", " "), 90, 10)
         next_line(6)
         
         if mortgage_payment > 0:
@@ -1116,12 +1116,12 @@ def generate_investment_plan(budget_rub: int, pay_format: str = "") -> str:
         lines.append(f"   ~{fmt_rub(monthly_12)}/мес")
         lines.append("")
         
-        # Рассрочка 24 мес
-        total_with_rate = remaining * 1.06
-        monthly_24 = round(total_with_rate / 24 / 1000) * 1000
+        # Рассрочка 18 мес
+        total_with_rate = remaining * 1.04
+        monthly_18 = round(total_with_rate / 18 / 1000) * 1000
         overpay = round((total_with_rate - remaining) / 1000) * 1000
-        lines.append("📅 <b>Рассрочка 24 мес</b> (+6% годовых)")
-        lines.append(f"   ~{fmt_rub(monthly_24)}/мес, переплата ~{fmt_rub(overpay)}")
+        lines.append("📅 <b>Рассрочка 18 мес</b> (+4% годовых)")
+        lines.append(f"   ~{fmt_rub(monthly_18)}/мес, переплата ~{fmt_rub(overpay)}")
         lines.append("")
         
         # Ипотека

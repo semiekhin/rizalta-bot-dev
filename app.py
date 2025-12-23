@@ -487,7 +487,7 @@ async def process_callback(callback: Dict[str, Any]):
             from services.kp_pdf_generator import generate_kp_pdf
             success = 0
             for flat in flats:
-                pdf_path = generate_kp_pdf(code=flat["code"], include_24m=True)
+                pdf_path = generate_kp_pdf(code=flat["code"], include_18m=True)
                 if pdf_path:
                     await send_document(chat_id, pdf_path, f"КП_{flat['code']}.pdf")
                     success += 1
@@ -498,7 +498,7 @@ async def process_callback(callback: Dict[str, Any]):
         lot_code = data.replace("domo_", "")
         await send_message(chat_id, f"⏳ Генерирую КП для {lot_code}...")
         from services.kp_pdf_generator import generate_kp_pdf
-        pdf_path = generate_kp_pdf(code=lot_code, include_24m=True)
+        pdf_path = generate_kp_pdf(code=lot_code, include_18m=True)
         if pdf_path:
             await send_document(chat_id, pdf_path, f"КП_{lot_code}.pdf")
         else:

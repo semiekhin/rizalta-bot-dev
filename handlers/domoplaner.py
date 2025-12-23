@@ -56,7 +56,7 @@ async def handle_domoplaner_select(chat_id: int, lot_code: str, send_message, se
     # Генерируем PDF
     from services.kp_pdf_generator import generate_kp_pdf
     
-    pdf_path = generate_kp_pdf(code=lot_code, include_24m=True)
+    pdf_path = generate_kp_pdf(code=lot_code, include_18m=True)
     
     if pdf_path:
         await send_document(chat_id, pdf_path, f"КП_{lot_code}.pdf")
