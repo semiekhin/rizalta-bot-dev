@@ -42,7 +42,6 @@ from models.state import (
 )
 
 # Сервисы
-from services.monitoring import log_request, monitoring_loop
 from services.telegram import send_message, send_message_inline, answer_callback_query, send_document
 from services.calculations import normalize_unit_code
 
@@ -1243,7 +1242,6 @@ async def process_voice_message(chat_id: int, voice: Dict[str, Any], user_info: 
     """
     Обработка голосового сообщения через GPT-роутинг.
     """
-from services.monitoring import log_request, monitoring_loop
     from services.telegram import download_file
     from services.speech import transcribe_voice
     
