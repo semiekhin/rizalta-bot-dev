@@ -76,10 +76,14 @@ async def reminder_loop():
     from pathlib import Path
     
     DB_PATH = Path("/opt/bot-dev/secretary.db")
-    ALTAI_OFFSET = 4
     
     await asyncio.sleep(5)  # Даём боту запуститься
     print("[DEV] Фоновая задача напоминаний запущена")
+    
+    def get_user_tz(cursor, user_id):
+        cursor.execute("SELECT timezone FROM users WHERE user_id = ?", (user_id,))
+        row = cursor.fetchone()
+        return row[0] if row else 3  # По умолчанию Москва
     
     while True:
         try:
@@ -87,26 +91,35 @@ async def reminder_loop():
                 conn = sqlite3.connect(str(DB_PATH))
                 cursor = conn.cursor()
                 
-                now_msk = datetime.now()
-                now_altai = now_msk + timedelta(hours=ALTAI_OFFSET)
-                remind_time = now_altai + timedelta(minutes=15)
-                
-                today = now_altai.strftime("%Y-%m-%d")
-                current_time = now_altai.strftime("%H:%M")
-                remind_time_str = remind_time.strftime("%H:%M")
-                
+                # Получаем все pending задачи с временем
                 cursor.execute("""
                     SELECT id, user_id, task_text, due_date, due_time, client_name
                     FROM tasks 
                     WHERE status = 'pending' 
                     AND reminder_sent = 0
-                    AND due_date = ?
                     AND due_time IS NOT NULL
-                    AND due_time <= ?
-                    AND due_time > ?
-                """, (today, remind_time_str, current_time))
+                """)
                 
-                tasks = cursor.fetchall()
+                all_tasks = cursor.fetchall()
+                tasks = []
+                
+                now_utc = datetime.utcnow()
+                
+                for task in all_tasks:
+                    task_id, user_id, task_text, due_date, due_time, client_name = task
+                    
+                    # Получаем timezone пользователя
+                    user_tz = get_user_tz(cursor, user_id)
+                    
+                    # Текущее время по timezone пользователя
+                    now_user = now_utc + timedelta(hours=user_tz)
+                    today_user = now_user.strftime("%Y-%m-%d")
+                    current_time_user = now_user.strftime("%H:%M")
+                    remind_time_user = (now_user + timedelta(minutes=15)).strftime("%H:%M")
+                    
+                    # Проверяем нужно ли напоминание
+                    if due_date == today_user and due_time <= remind_time_user and due_time > current_time_user:
+                        tasks.append(task)
                 
                 for task in tasks:
                     task_id, user_id, task_text, due_date, due_time, client_name = task
