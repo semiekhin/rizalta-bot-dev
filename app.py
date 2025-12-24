@@ -128,6 +128,7 @@ app = FastAPI(title="RIZALTA Bot v2.1.0")
 # ====== Фоновая задача напоминаний ======
 
 async def reminder_loop():
+    import os
     """Проверяет и отправляет напоминания каждую минуту."""
     import sqlite3
     import aiohttp
