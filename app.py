@@ -125,6 +125,87 @@ from handlers import (
 app = FastAPI(title="RIZALTA Bot v2.1.0")
 
 
+# ====== Фоновая задача напоминаний ======
+
+async def reminder_loop():
+    """Проверяет и отправляет напоминания каждую минуту."""
+    import sqlite3
+    import aiohttp
+    from datetime import datetime, timedelta
+    from pathlib import Path
+    
+    DB_PATH = Path("/opt/bot-dev/secretary.db")
+    BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+    ALTAI_OFFSET = 4
+    
+    while True:
+        try:
+            if DB_PATH.exists():
+                conn = sqlite3.connect(str(DB_PATH))
+                cursor = conn.cursor()
+                
+                now_msk = datetime.now()
+                now_altai = now_msk + timedelta(hours=ALTAI_OFFSET)
+                remind_time = now_altai + timedelta(minutes=15)
+                
+                today = now_altai.strftime("%Y-%m-%d")
+                current_time = now_altai.strftime("%H:%M")
+                remind_time_str = remind_time.strftime("%H:%M")
+                
+                cursor.execute("""
+                    SELECT id, user_id, task_text, due_date, due_time, client_name
+                    FROM tasks 
+                    WHERE status = 'pending' 
+                    AND reminder_sent = 0
+                    AND due_date = ?
+                    AND due_time IS NOT NULL
+                    AND due_time <= ?
+                    AND due_time > ?
+                """, (today, remind_time_str, current_time))
+                
+                tasks = cursor.fetchall()
+                
+                for task in tasks:
+                    task_id, user_id, task_text, due_date, due_time, client_name = task
+                    
+                    client_info = f"\n👤 Клиент: {client_name}" if client_name else ""
+                    message = f"""⏰ <b>Напоминание!</b>
+
+📋 {task_text}{client_info}
+🕐 Через 15 минут ({due_time})"""
+                    
+                    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+                    payload = {
+                        "chat_id": user_id,
+                        "text": message,
+                        "parse_mode": "HTML",
+                        "disable_notification": False
+                    }
+                    
+                    async with aiohttp.ClientSession() as session:
+                        async with session.post(url, json=payload) as resp:
+                            result = await resp.json()
+                            if result.get("ok"):
+                                cursor.execute("UPDATE tasks SET reminder_sent = 1 WHERE id = ?", (task_id,))
+                                conn.commit()
+                                print(f"[REMINDER] ✅ {user_id}: {task_text}")
+                            else:
+                                print(f"[REMINDER] ❌ {user_id}: {result}")
+                
+                conn.close()
+        except Exception as e:
+            print(f"[REMINDER] Error: {e}")
+        
+        await asyncio.sleep(60)
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Запуск фоновых задач при старте бота."""
+    asyncio.create_task(reminder_loop())
+    print("[DEV] Фоновая задача напоминаний запущена")
+
+
 # ====== Health check ======
 
 @app.get("/")

@@ -69,10 +69,86 @@ async def handle_update(upd):
     user_info = msg.get("from", {})
     await process_message(chat_id, text, user_info)
 
+async def reminder_loop():
+    """Проверяет и отправляет напоминания каждую минуту."""
+    import sqlite3
+    from datetime import datetime, timedelta
+    from pathlib import Path
+    
+    DB_PATH = Path("/opt/bot-dev/secretary.db")
+    ALTAI_OFFSET = 4
+    
+    await asyncio.sleep(5)  # Даём боту запуститься
+    print("[DEV] Фоновая задача напоминаний запущена")
+    
+    while True:
+        try:
+            if DB_PATH.exists():
+                conn = sqlite3.connect(str(DB_PATH))
+                cursor = conn.cursor()
+                
+                now_msk = datetime.now()
+                now_altai = now_msk + timedelta(hours=ALTAI_OFFSET)
+                remind_time = now_altai + timedelta(minutes=15)
+                
+                today = now_altai.strftime("%Y-%m-%d")
+                current_time = now_altai.strftime("%H:%M")
+                remind_time_str = remind_time.strftime("%H:%M")
+                
+                cursor.execute("""
+                    SELECT id, user_id, task_text, due_date, due_time, client_name
+                    FROM tasks 
+                    WHERE status = 'pending' 
+                    AND reminder_sent = 0
+                    AND due_date = ?
+                    AND due_time IS NOT NULL
+                    AND due_time <= ?
+                    AND due_time > ?
+                """, (today, remind_time_str, current_time))
+                
+                tasks = cursor.fetchall()
+                
+                for task in tasks:
+                    task_id, user_id, task_text, due_date, due_time, client_name = task
+                    
+                    client_info = f"\n👤 Клиент: {client_name}" if client_name else ""
+                    message = f"""⏰ <b>Напоминание!</b>
+
+📋 {task_text}{client_info}
+🕐 Через 15 минут ({due_time})"""
+                    
+                    url = f"{TG_API}/sendMessage"
+                    payload = {
+                        "chat_id": user_id,
+                        "text": message,
+                        "parse_mode": "HTML",
+                        "disable_notification": False
+                    }
+                    
+                    async with aiohttp.ClientSession() as session:
+                        async with session.post(url, json=payload) as resp:
+                            result = await resp.json()
+                            if result.get("ok"):
+                                cursor.execute("UPDATE tasks SET reminder_sent = 1 WHERE id = ?", (task_id,))
+                                conn.commit()
+                                print(f"[REMINDER] ✅ {user_id}: {task_text}")
+                            else:
+                                print(f"[REMINDER] ❌ {user_id}: {result}")
+                
+                conn.close()
+        except Exception as e:
+            print(f"[REMINDER] Error: {e}")
+        
+        await asyncio.sleep(60)
+
+
 async def main():
     print("[DEV] RIZALTA Bot — режим polling")
     print("[DEV] Ctrl+C для остановки")
     print("=" * 40)
+    
+    # Запускаем фоновую задачу напоминаний
+    asyncio.create_task(reminder_loop())
     
     async with aiohttp.ClientSession() as session:
         await delete_webhook(session)
