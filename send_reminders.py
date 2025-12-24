@@ -7,8 +7,8 @@ import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path
 
-BOT_TOKEN = "8343378629:AAE4OlxArGXPpju0oEzk19Wmp4ofummP788"
-DB_PATH = Path("/opt/bot/secretary.db")
+BOT_TOKEN = "8454364431:AAGcaRquwH1FZcjMPqPwbfxsB0G4xc0XVPA"  # DEV бот
+DB_PATH = Path("/opt/bot-dev/secretary.db")
 
 # Алтай = MSK + 4
 ALTAI_OFFSET = 4
