@@ -15,6 +15,7 @@ TG_API = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 
 # Импортируем обработчики из app.py
 from app import process_callback, process_message, process_voice_message, handle_contact_shared
+from services.monitoring import log_request, monitoring_loop
 
 async def get_updates(session, offset=None, timeout=30):
     """Получает обновления через long polling."""
@@ -45,6 +46,8 @@ async def handle_update(upd):
     
     # Message
     msg = upd.get("message") or upd.get("edited_message")
+    if msg:
+        log_request(msg.get("chat", {}).get("id", 0), "message")
     if not msg:
         return
     
@@ -162,6 +165,9 @@ async def main():
     
     # Запускаем фоновую задачу напоминаний
     asyncio.create_task(reminder_loop())
+    
+    # Запускаем мониторинг
+    asyncio.create_task(monitoring_loop())
     
     async with aiohttp.ClientSession() as session:
         await delete_webhook(session)
