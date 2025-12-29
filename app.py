@@ -42,6 +42,7 @@ from models.state import (
 )
 
 # Сервисы
+from services.monitoring import log_request, monitoring_loop
 from services.telegram import send_message, send_message_inline, answer_callback_query, send_document
 from services.calculations import normalize_unit_code
 
@@ -138,7 +139,7 @@ async def reminder_loop():
     from datetime import datetime, timedelta
     from pathlib import Path
     
-    DB_PATH = Path("/opt/bot-dev/secretary.db")
+    DB_PATH = Path("/opt/bot/secretary.db")
     BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
     ALTAI_OFFSET = 4
     
@@ -207,7 +208,8 @@ async def reminder_loop():
 async def startup_event():
     """Запуск фоновых задач при старте бота."""
     asyncio.create_task(reminder_loop())
-    print("[DEV] Фоновая задача напоминаний запущена")
+    asyncio.create_task(monitoring_loop())
+    print("[PROD] Фоновые задачи запущены")
 
 
 # ====== Health check ======
@@ -244,6 +246,9 @@ async def telegram_webhook(request: Request):
         return {"ok": True}
     
     chat_id = msg["chat"]["id"]
+    
+    # Логируем запрос
+    log_request(chat_id, "message")
     text = (msg.get("text") or "").strip()
     
     # Обработка контакта
@@ -735,6 +740,11 @@ async def process_callback(callback: Dict[str, Any]):
         from handlers.booking_calendar import handle_decline_booking
         booking_id = int(data.replace("book_decline_", ""))
         await handle_decline_booking(chat_id, booking_id)
+
+    elif data.startswith("book_take_"):
+        from handlers.booking_calendar import handle_take_booking
+        booking_id = int(data.replace("book_take_", ""))
+        await handle_take_booking(chat_id, booking_id, from_user)
 
     # ===== Domoplaner =====
     elif data == "domo_all":
