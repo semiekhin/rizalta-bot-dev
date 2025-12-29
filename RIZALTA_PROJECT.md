@@ -3,6 +3,11 @@
 ## О проекте
 AI-консультант для риэлторов. Инвестиционная недвижимость RIZALTA Resort Belokurikha (Алтай).
 
+**Часть экосистемы RIZALTA AI PLATFORM:**
+- ✅ **RIZALTA BOT** — цифровой отдел продаж 24/7 (готов)
+- 🔜 **RealtMy Mini App** — управление контентом Telegram-каналов
+- 🔜 **Контент-завод** — AI-медиацентр автогенерации
+
 ## Боты
 - **Prod:** @RealtMeAI_bot (webhook, порт 8000)
 - **Dev:** @rizaltatestdevop_bot (polling)
@@ -23,40 +28,29 @@ Python 3.12 · FastAPI · OpenAI GPT-4o-mini · Whisper · SQLite · Cloudflare 
 ```
 /opt/bot/
 ├── app.py                    # Главный файл (webhook, роутинг)
-├── run_polling.py            # Dev режим
+├── run_polling.py            # Dev режим (polling, reminder_loop)
 ├── config/
-│   └── settings.py           # Константы, кнопки меню
+│   └── settings.py           # Константы, SHOWS_GROUP_ID
 ├── handlers/
 │   ├── __init__.py           # Экспорты
 │   ├── menu.py               # Главное меню
 │   ├── ai_chat.py            # AI диалоги
 │   ├── booking.py            # Онлайн-показы
-│   ├── booking_fixation.py   # Фиксация клиентов ri.rclick.ru
-│   ├── booking_calendar.py   # Календарь бронирования
+│   ├── booking_calendar.py   # Календарь + групповые заявки
 │   ├── compare.py            # Депозит vs RIZALTA
-│   ├── kp.py                 # Коммерческие предложения
+│   ├── kp.py                 # КП + навигация + пагинация
 │   ├── calc_dynamic.py       # Расчёты ROI
-│   ├── docs.py               # Документы
-│   ├── news.py               # Новости/дайджест
-│   ├── media.py              # Медиа
-│   └── units.py              # Работа с лотами
+│   ├── secretary.py          # AI-секретарь + timezone
+│   └── ...
 ├── services/
-│   ├── telegram.py           # API Telegram
-│   ├── ai_chat.py            # OpenAI интеграция
-│   ├── calculations.py       # Финансовые расчёты
-│   ├── rclick_service.py     # API ri.rclick.ru
-│   ├── deposit_calculator.py # Калькулятор депозита ЦБ
-│   ├── investment_compare.py # Сравнение инвестиций
-│   ├── compare_pdf_generator.py # PDF сравнения
-│   ├── kp_pdf_generator.py   # PDF КП
-│   ├── calc_xlsx_generator.py # Excel ROI
-│   ├── units_db.py           # Работа с БД лотов
-│   └── kp_resources/         # Логотип, шрифты
-├── data/
-│   ├── rizalta_knowledge_base.txt # База знаний AI
-│   ├── units.json            # Данные лотов
-│   └── rizalta_finance.json  # Финансовые данные
-└── *.db                      # SQLite базы
+│   ├── telegram.py           # API Telegram + edit_message
+│   ├── notifications.py      # Уведомления + группа показов
+│   ├── monitoring.py         # Мониторинг нагрузки
+│   ├── secretary_db.py       # БД секретаря + timezone
+│   └── ...
+├── properties.db             # 348 лотов + bookings
+├── secretary.db              # Задачи + users
+└── monitoring.db             # Статистика
 ```
 
 ---
@@ -64,138 +58,90 @@ Python 3.12 · FastAPI · OpenAI GPT-4o-mini · Whisper · SQLite · Cloudflare 
 ## Функциональность
 
 ### 1. КП (Коммерческие предложения)
-- **3 варианта:** 100% оплата, 12 мес, 12+24 мес
-- Выбор лота по площади/бюджету
+- 3 варианта: 100% оплата, 12 мес, 12+18 мес
 - PDF с логотипом, планировкой, расчётами
-- Скидка 5% при 100% оплате
+- Навигация: Корпус → Этаж → Лоты
+- Пагинация "Показать ещё N лотов"
 
-### 2. Фиксация клиентов
-- Интеграция с ri.rclick.ru (reverse engineering)
-- Авторизация риэлтора (токен 90 дней)
-- Фиксация без перехода на сайт
+### 2. Расчёты доходности
+- Динамический калькулятор ROI
+- Excel генератор
+- Рассрочка 12 и 18 месяцев
 
 ### 3. Сравнение депозит vs RIZALTA
 - Данные ЦБ РФ (ключевая ставка)
 - 3 сценария (базовый, оптимист, пессимист)
 - PDF отчёт
 
-### 4. Расчёты ROI
-- Динамический калькулятор
-- Excel генератор
-- Прогноз до 2029
+### 4. AI-секретарь
+- Создание задач голосом/текстом
+- Напоминания за 15 минут
+- 11 часовых поясов России
 
-### 5. AI консультант
-- GPT-4o-mini
-- База знаний проекта
-- Голосовой ввод (Whisper)
+### 5. Групповые заявки на показ (v2.1.2)
+- Заявка в группу с кнопкой "🙋 Взять заявку"
+- Кто первый нажал — забирает себе
+- Автоматическая задача в секретаре
 
-### 6. Календарь показов
-- Выбор специалиста
-- Бронирование времени
-
----
-
-## API интеграции
-
-### ri.rclick.ru (reverse engineering)
-- `POST /auth/login/` — авторизация → rClick_token
-- `POST /notice/newbooking/` — фиксация клиента
-- project_id = 340
-
-### ЦБ РФ
-- Ключевая ставка
-- Прогноз ставок
-
-### Другие
-- Open-Meteo (погода)
-- Aviasales (перелёты)
-- RSS (новости недвижимости)
+### 6. Мониторинг
+- Алерт >30 запросов/мин
+- Алерт RAM >50%
+- Ежедневный отчёт 20:00
 
 ---
 
-## История изменений
+## База данных
 
-| Версия | Дата | Описание |
-|--------|------|----------|
-| 1.9.5 | 18.12.2025 | КП 3 варианта, фиксация ri.rclick.ru, депозит vs RIZALTA |
-| 1.9.2 | 18.12.2025 | Обновление OpenAI ключа, daily_check.sh |
-| 1.9.1 | 12.12.2025 | Fix Excel (значения вместо формул) |
-| 1.9 | 11-12.12.2025 | Excel ROI, безопасность SSH, документация |
-| 1.8 | 10.12.2025 | Фикс КП, метазнания |
-| 1.7 | 09-10.12.2025 | PDF КП с логотипом, календарь |
-| 1.6 | 09.12.2025 | Dev-окружение, парсер ri.rclick.ru |
+### properties.db — 348 лотов
+- Корпус 1 «Family»: 244 лота
+- Корпус 2 «Business»: 104 лота
+- Таблица `bookings`: taken_by_id, taken_by_name, group_message_id
 
----
+### secretary.db
+- `tasks` — задачи пользователей
+- `users` — timezone (default: 3 = Москва)
 
-## Важные правила
-- Токены НЕ коммитить (только в .env)
-- Ставки аренды: база 26.8 м² (не 22!)
-- start_year = 2026 в калькуляторах
-- Формула скидки: price * 0.95
+### monitoring.db
+- `stats` — timestamp, user_id, request_type, response_time_ms
 
 ---
 
-## AI-Секретарь (v2.0.0)
+## Telegram Mini App (стратегия)
 
-### Назначение
-Личный ежедневник для риэлторов — голосовое добавление задач, просмотр расписания, напоминания.
+### Решение от 29.12.2025
+RealtMy → **Telegram Mini App** вместо native iOS/Android
 
-### Структура
-```
-handlers/secretary.py      — UI, навигация, обработка callback
-services/secretary_db.py   — SQLite операции (tasks table)
-services/secretary_ai.py   — GPT парсинг задач из текста
-secretary.db               — база данных задач
-```
+| Критерий | Native App | Mini App |
+|----------|-----------|----------|
+| Стоимость | 800-1200 тыс ₽ | 300-400 тыс ₽ |
+| Срок | 2-3 месяца | 3-4 недели |
+| Установка | App Store/Play | Уже в Telegram |
 
-### Таблица tasks
-```sql
-CREATE TABLE tasks (
-    id INTEGER PRIMARY KEY,
-    user_id INTEGER NOT NULL,      -- chat_id пользователя
-    task_text TEXT NOT NULL,
-    due_date TEXT,                 -- YYYY-MM-DD
-    due_time TEXT,                 -- HH:MM
-    client_name TEXT,
-    priority TEXT DEFAULT 'normal', -- urgent/high/normal/low
-    status TEXT DEFAULT 'pending',  -- pending/done/cancelled
-    description TEXT,
-    reminder_sent INTEGER DEFAULT 0,
-    created_at TEXT,
-    completed_at TEXT
-);
-```
-
-### Callback'и
-```python
-secretary_menu          — главное меню секретаря
-sec_day_{date}         — задачи на день
-sec_week_{date}        — задачи на неделю
-sec_task_{id}          — детали задачи
-sec_done_{id}          — отметить выполненной
-sec_undone_{id}        — вернуть в работу
-sec_del_{id}           — удалить
-sec_move_{id}          — меню переноса
-sec_moveto_{id}_{date} — перенести на дату
-sec_add                — добавить задачу
-sec_add_{date}         — добавить на дату
-```
-
-### Режим секретаря
-- `set_secretary_mode(chat_id, True)` — включается при входе в меню
-- `is_secretary_mode(chat_id)` — проверка в process_message
-- Все сообщения в режиме → создание задач
-- Выход через "Главное меню" выключает режим
+### Планируемые Mini Apps
+1. **Шахматка** — визуальный выбор лотов
+2. **RealtMy** — генерация постов, публикация, CRM
 
 ---
 
 ## История изменений
 
-| Версия | Дата | Описание |
-|--------|------|----------|
-| 2.0.0 | 21.12.2025 | AI-Секретарь, GPT парсинг задач, режим секретаря |
-| 1.9.6 | 19.12.2025 | Презентации (6), видео (9), улучшения КП |
-| 1.9.5 | 18.12.2025 | КП 3 варианта, фиксация ri.rclick.ru, депозит vs RIZALTA |
-| 1.9.2 | 18.12.2025 | Обновление OpenAI ключа, daily_check.sh |
-| 1.9.1 | 12.12.2025 | Fix Excel (значения вместо формул) |
-| 1.9 | 11-12.12.2025 | Excel ROI, безопасность SSH, документация |
+### v2.1.2 (29.12.2025)
+- Групповые заявки с кнопкой "Взять"
+- Интеграция заявок с AI-секретарём
+- Функции edit_message_inline
+- Стратегия Mini App
+
+### v2.1.1 (24.12.2025)
+- Мониторинг нагрузки
+- Часовые пояса (11 зон)
+- Напоминания через фоновую задачу
+
+### v2.1.0 (24.12.2025)
+- 348 лотов вместо 69
+- Универсальная навигация
+- Пагинация "Показать ещё"
+- Поиск по бюджету ±10%
+
+### v1.9.6 (19.12.2025)
+- Новый дизайн КП при 100% оплате
+- Презентации и видео
