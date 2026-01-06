@@ -176,7 +176,7 @@ async def handle_calculations_menu(chat_id: int):
     """Подменю 'Расчёты'."""
     await send_message(
         chat_id,
-        "💰 <b>Финансовые расчёты</b>\n\nВыберите, что вас интересует:",
+        "💰 <b>Расчёты</b>\n\n📊 Доходность — сколько заработаете\n💳 Рассрочка — варианты оплаты\n📈 Сравнение — RIZALTA vs депозит\n\nВыберите:",
         with_keyboard=True,
         buttons=CALCULATIONS_BUTTONS,
     )
