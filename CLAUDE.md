@@ -1,53 +1,60 @@
-# RIZALTA Bot - Quick Start для Claude
+# RIZALTA — Quick Start для Claude
 
-## Подключение к серверу
+## Версия: 2.2.0 (06.01.2026)
+
+## SSH
 ```bash
 ssh -p 2222 root@72.56.64.91
 ```
 
 ## Структура
-- **PROD:** /opt/bot (@RealtMeAI_bot) - webhook через uvicorn
-- **DEV:** /opt/bot-dev (@rizaltatestdevop_bot) - polling
-
-## Версия: 2.1.1
-
-## Ключевые файлы
-- `app.py` - главный файл, GPT Intent Router
-- `run_polling.py` - DEV режим polling
-- `handlers/kp.py` - КП, навигация, пагинация
-- `handlers/secretary.py` - AI-секретарь с timezone
-- `services/monitoring.py` - мониторинг нагрузки
-- `services/secretary_db.py` - БД секретаря + timezone
-
-## Базы данных (SQLite)
-- `properties.db` - 348 лотов
-- `secretary.db` - задачи + users (timezone)
-- `monitoring.db` - статистика запросов
-
-## Команды
-```bash
-# DEV
-systemctl restart rizalta-bot-dev
-journalctl -u rizalta-bot-dev -f
-
-# PROD  
-systemctl restart rizalta-bot
-journalctl -u rizalta-bot -f
+```
+/opt/bot/        — PROD (НЕ ТРОГАТЬ без согласования!)
+/opt/bot-dev/    — DEV (тут работаем)
+/opt/miniapp/    — Mini App (React)
 ```
 
-## Деплой
-1. Изменения в DEV
-2. Тест в DEV боте
-3. Копирование в PROD
-4. `sed -i 's|bot-dev|bot|g'` для путей
-5. Рестарт + коммит оба репо
+## Репозитории
+- PROD: github.com/semiekhin/rizalta-bot
+- DEV: github.com/semiekhin/rizalta-bot-dev  
+- Mini App: github.com/semiekhin/rizalta-miniapp
 
-## Мониторинг
-- Алерт >30 req/min
-- Алерт RAM >50%
-- Ежедневный отчёт 20:00
+## Сервисы (systemd)
+```bash
+# PROD — НЕ ТРОГАТЬ!
+rizalta-bot.service          # uvicorn :8000 (webhook)
+cloudflare-rizalta.service   # туннель PROD
 
-## TODO
-- [ ] Кеширование GPT ответов для масштабирования
-- [ ] Redis при >500 активных users
-- [ ] PostgreSQL при >2000 users
+# DEV — можно перезапускать
+rizalta-bot-dev.service      # polling (Telegram)
+rizalta-dev-api.service      # uvicorn :8002 (API Mini App)
+rizalta-dev-tunnel.service   # туннель DEV + auto vercel.json
+```
+
+## Порты
+- :8000 — PROD (webhook)
+- :8002 — DEV API (Mini App)
+
+## Mini App
+- URL: https://rizalta-miniapp.vercel.app
+- API: /api/lots, /api/miniapp-action
+- Деплой: `cd /opt/miniapp && vercel --prod`
+
+## Частые команды
+```bash
+# Статус
+systemctl status rizalta-bot         # PROD
+systemctl status rizalta-dev-api     # DEV API
+
+# Логи
+journalctl -u rizalta-dev-api -f
+
+# Git
+cd /opt/bot-dev && git add -A && git commit -m "msg" && git push
+cd /opt/miniapp && git add -A && git commit -m "msg" && git push
+```
+
+## ⚠️ ВАЖНО
+1. PROD работает коммерчески — изменения только после теста в DEV
+2. При смене туннеля DEV — vercel.json обновляется автоматически
+3. Документация: PROJECT.md, RIZALTA_PROJECT.md

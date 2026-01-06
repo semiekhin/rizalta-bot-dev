@@ -1,6 +1,6 @@
 # RIZALTA Bot DEV — Документация
 
-## Версия: 2.1.2
+## Версия: 2.2.0
 
 ## Быстрый старт
 ```bash
@@ -10,92 +10,81 @@ source venv/bin/activate
 ```
 
 ## Структура
-- `/opt/bot` — PROD (@RealtMeAI_bot, webhook)
+- `/opt/bot` — PROD (@RealtMeAI_bot, webhook :8000)
 - `/opt/bot-dev` — DEV (@rizaltatestdevop_bot, polling)
+- `/opt/miniapp` — Mini App (React, Vercel)
 
-## Что нового в v2.1.2 (29.12.2025)
-- **Групповые заявки на показ** — кнопка "🙋 Взять заявку" в группе
-- **Интеграция с секретарём** — автоматическое создание задачи при взятии заявки
-- **Редактирование сообщений** — edit_message_inline() для обновления статуса
-- **Стратегия Mini App** — RealtMy будет Telegram Mini App вместо native
+## Репозитории
+- **PROD:** https://github.com/semiekhin/rizalta-bot
+- **DEV:** https://github.com/semiekhin/rizalta-bot-dev
+- **Mini App:** https://github.com/semiekhin/rizalta-miniapp
 
-## Глобальная задача
-**Постепенный переход на Mini App архитектуру:**
-1. Шахматка (визуальный выбор лотов) — прототип готов
-2. RealtMy (управление контентом) — планируется
+## Что нового в v2.2.0 (06.01.2026)
+- **Mini App интеграция** — шахматка лотов на Vercel
+- **API для Mini App** — /api/lots, /api/miniapp-action
+- **CORS middleware** — кросс-доменные запросы
+- **Кнопка "🏢 Лоты"** — открывает Mini App
+- **Systemd сервисы DEV:**
+  - `rizalta-dev-api.service` — uvicorn :8002
+  - `rizalta-dev-tunnel.service` — cloudflared + автообновление vercel.json
+- **Скрипт update_vercel_tunnel.sh** — автообновление при смене URL туннеля
 
-## Изменения v2.1.2
-### Файлы:
-- `app.py` — callback `book_take_`
-- `services/telegram.py` — send_message_inline_return_id, edit_message_inline
-- `handlers/booking_calendar.py` — handle_take_booking
+## Архитектура
+```
+PROD :8000
+├── rizalta-bot.service (uvicorn, webhook)
+└── cloudflare-rizalta.service (туннель)
 
-### БД (properties.db):
-```sql
-ALTER TABLE bookings ADD COLUMN taken_by_id INTEGER;
-ALTER TABLE bookings ADD COLUMN taken_by_name TEXT;
-ALTER TABLE bookings ADD COLUMN group_message_id INTEGER;
+DEV :8002
+├── rizalta-bot-dev.service (polling)
+├── rizalta-dev-api.service (uvicorn, API для Mini App)
+└── rizalta-dev-tunnel.service (туннель + auto vercel.json)
+
+Mini App
+├── https://rizalta-miniapp.vercel.app (статика)
+└── API проксируется через Vercel → DEV туннель
+```
+
+## Mini App
+- **URL:** https://rizalta-miniapp.vercel.app
+- **Стек:** React + Vite + Tailwind CSS
+- **Функции:** визуальный выбор 348 лотов, фильтры
+- **Деплой:** `cd /opt/miniapp && vercel --prod`
+
+## Команды
+```bash
+# Статус сервисов
+systemctl status rizalta-bot          # PROD
+systemctl status rizalta-bot-dev      # DEV polling
+systemctl status rizalta-dev-api      # DEV API
+systemctl status rizalta-dev-tunnel   # DEV туннель
+
+# Логи
+journalctl -u rizalta-bot -f          # PROD
+journalctl -u rizalta-dev-api -f      # DEV API
+journalctl -u rizalta-dev-tunnel -f   # DEV туннель
+
+# Перезапуск
+systemctl restart rizalta-bot         # PROD
+systemctl restart rizalta-dev-api rizalta-dev-tunnel  # DEV
 ```
 
 ## Предыдущие версии
 
+### v2.1.2 (29.12.2025)
+- Групповые заявки на показ с кнопкой "Взять"
+- Интеграция заявок с AI-секретарём
+
 ### v2.1.1 (24.12.2025)
-- Мониторинг нагрузки (services/monitoring.py)
+- Мониторинг нагрузки
 - 11 часовых поясов для секретаря
-- Напоминания через asyncio task
 
 ### v2.1.0 (24.12.2025)
-- 348 лотов вместо 69
-- Универсальная навигация Корпус → Этаж → Лоты
-- Пагинация "Показать ещё N лотов"
-- Обработка 70 дублей кодов
-- Поиск по бюджету ±10%
-
-### v1.9.6 (19.12.2025)
-- Новый дизайн КП при 100% оплате
-- 6 презентаций проекта
-- 9 видео про Алтай
-
-## Команды
-```bash
-# Запуск DEV бота
-python run_polling.py
-
-# Проверка синтаксиса
-python3 -c "import app; print('OK')"
-
-# Логи
-journalctl -u rizalta-bot-dev -f
-
-# Перезапуск
-systemctl restart rizalta-bot-dev
-```
-
-## Деплой в PROD
-```bash
-# 1. Тест в DEV
-# 2. Копирование
-cp /opt/bot-dev/file.py /opt/bot/
-sed -i 's|/opt/bot-dev|/opt/bot|g' /opt/bot/file.py
-
-# 3. Рестарт PROD
-cd /opt/bot
-python3 -c "import app; print('OK')"
-systemctl restart rizalta-bot
-
-# 4. Коммит обоих репо
-cd /opt/bot-dev && git add -A && git commit -m "v2.1.2" && git push
-cd /opt/bot && git add -A && git commit -m "v2.1.2" && git push
-```
+- 348 лотов, универсальная навигация
+- Пагинация, GPT Intent Router
 
 ## TODO
-- [ ] Mini App шахматка (API + React + Vercel)
-- [ ] Mini App RealtMy (контент-менеджмент)
-- [ ] Детальное логирование callback'ов
-- [ ] Кеширование GPT (Redis)
-- [ ] PostgreSQL при >2000 users
-
-## Ссылки
-- **Prod repo:** https://github.com/semiekhin/rizalta-bot
-- **Dev repo:** https://github.com/semiekhin/rizalta-bot-dev
-- **Сервер:** ssh -p 2222 root@72.56.64.91
+- [ ] Named Tunnel или свой домен для PROD (надёжность)
+- [ ] Деплой Mini App в PROD
+- [ ] Self-healing мониторинг
+- [ ] RealtMy Mini App (контент-менеджмент)
