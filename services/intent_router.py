@@ -170,7 +170,7 @@ confidence — уверенность от 0 до 1
 
 QUICK_PATTERNS = {
     # Точные совпадения кнопок меню
-    "📖 О проекте": {"intent": "about_project", "params": {}},
+    "🔥Купи себе отель!": {"intent": "about_project", "params": {}},
     "💰 Расчёты": {"intent": "calculations_menu", "params": {}},
     "📊 Доходность": {"intent": "calculate_roi", "params": {}},
     "💳 Рассрочка": {"intent": "show_installment", "params": {}},

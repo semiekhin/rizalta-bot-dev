@@ -29,12 +29,11 @@ async def handle_send_presentation(chat_id: int):
 
     
     inline_buttons = [
-        [{"text": "🏗 О застройщике", "callback_data": "pres_developer"}],
-        [{"text": "🏨 ZONT Hotel Group", "callback_data": "pres_zont"}],
-        [{"text": "🏛 Архитектор Пергаев", "callback_data": "pres_pergaev"}],
-        [{"text": "📊 Аналитика от CoreXP", "callback_data": "pres_corexp"}],
         [{"text": "📕 Презентация RIZALTA", "callback_data": "pres_rizalta_ru"}],
         [{"text": "📗 Презентация RIZALTA (ENG)", "callback_data": "pres_rizalta_eng"}],
+        [{"text": "🏨 ZONT Hotel Group", "callback_data": "pres_zont"}],
+        [{"text": "🏛 Pergaev Bureau", "callback_data": "pres_pergaev"}],
+        [{"text": "📊 Аналитика от CoreXP", "callback_data": "pres_corexp"}],
         [{"text": "🔙 Назад", "callback_data": "media_menu"}],
     ]
     
@@ -46,9 +45,8 @@ PRESENTATIONS_DIR = "/opt/bot-dev/presentations"
 PRESENTATIONS = {
     "pres_rizalta_ru": ("presentation_ru.pdf", "📕 Презентация RIZALTA RESORT BELOKURIKHA"),
     "pres_rizalta_eng": ("presentation_eng.pdf", "📗 Презентация RIZALTA RESORT BELOKURIKHA (ENG)"),
-    "pres_developer": ("about_developer.pdf", "🏗 О застройщике"),
     "pres_corexp": ("analytics_corexp.pdf", "📊 Аналитика проекта RIZALTA от CoreXP"),
-    "pres_pergaev": ("architect_pergaev.pdf", "🏛 PERGAEV BUREAU — Архитектор проекта"),
+    "pres_pergaev": ("pergaev_bureau.pdf", "🏛 Pergaev Bureau"),
     "pres_zont": ("zont_hotel.pdf", "🏨 ZONT Hotel Group — Управляющая компания"),
 }
 
