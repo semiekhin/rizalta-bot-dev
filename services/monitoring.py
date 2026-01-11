@@ -148,9 +148,42 @@ async def check_thresholds():
 
 
 async def send_daily_report():
-    """Отправляет ежедневный отчёт."""
+    """Отправляет ежедневный отчёт с данными watchdog."""
     stats = get_daily_stats()
     ram = get_ram_usage()
+    
+    # Данные от watchdog
+    try:
+        from services.watchdog.checks import check_all_services, get_all_resources, check_all_billing
+        from services.watchdog.config import SERVICES, SQLITE_DATABASES
+        import os
+        
+        # Сервисы
+        services = check_all_services(SERVICES)
+        services_ok = sum(1 for s in services.values() if s['active'])
+        services_total = len(services)
+        
+        # Ресурсы
+        resources = get_all_resources(SQLITE_DATABASES)
+        cpu = resources['cpu']['percent']
+        disk = resources['disk']
+        
+        # SQLite размеры
+        sqlite_total = sum(s for s in resources['sqlite'].values() if s > 0)
+        
+        # Timeweb баланс
+        tw_token = os.getenv('TIMEWEB_API_TOKEN', '')
+        billing = check_all_billing(tw_token)
+        tw_balance = billing['timeweb'].get('balance', 0) if billing['timeweb']['success'] else 0
+        
+        watchdog_info = f"""
+🖥 CPU: <b>{cpu:.1f}%</b>
+💿 Disk: <b>{disk['used_gb']:.1f}/{disk['total_gb']:.1f} GB ({disk['percent']:.0f}%)</b>
+🗄 SQLite: <b>{sqlite_total:.2f} MB</b>
+🔧 Сервисы: <b>{services_ok}/{services_total}</b>
+💳 Timeweb: <b>{tw_balance:.0f} ₽</b>"""
+    except Exception as e:
+        watchdog_info = f"\n⚠️ Watchdog: ошибка ({e})"
     
     message = f"""📊 <b>Ежедневный отчёт</b>
 {datetime.now().strftime('%d.%m.%Y')}
@@ -158,10 +191,9 @@ async def send_daily_report():
 📨 Запросов: <b>{stats['total_requests']}</b>
 👥 Уникальных: <b>{stats['unique_users']}</b>
 ⚡ Среднее время: <b>{stats['avg_response_ms']} мс</b>
-💾 RAM: <b>{ram:.1f}%</b>"""
+💾 RAM: <b>{ram:.1f}%</b>{watchdog_info}"""
 
     await send_alert(message)
-
 
 async def monitoring_loop():
     """Фоновая задача мониторинга."""
