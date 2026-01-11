@@ -46,8 +46,6 @@ async def handle_update(upd):
     
     # Message
     msg = upd.get("message") or upd.get("edited_message")
-    if msg:
-        log_request(msg.get("chat", {}).get("id", 0), "message")
     if not msg:
         return
     
@@ -70,7 +68,12 @@ async def handle_update(upd):
         return
     
     user_info = msg.get("from", {})
+    import time as _t
+    _start = _t.time()
     await process_message(chat_id, text, user_info)
+    duration = int((_t.time() - _start) * 1000)
+    print(f"[TIMING] Response time: {duration} ms")
+    log_request(chat_id, "message", duration)
 
 async def reminder_loop():
     """Проверяет и отправляет напоминания каждую минуту."""

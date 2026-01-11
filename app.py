@@ -346,8 +346,6 @@ async def telegram_webhook(request: Request):
     
     chat_id = msg["chat"]["id"]
     
-    # Логируем запрос
-    log_request(chat_id, "message")
     text = (msg.get("text") or "").strip()
     
     # Обработка контакта
@@ -367,7 +365,12 @@ async def telegram_webhook(request: Request):
     
     user_info = msg.get("from", {})
     
+    import time as _t
+    _start = _t.time()
     await process_message(chat_id, text, user_info)
+    duration = int((_t.time() - _start) * 1000)
+    print(f"[TIMING] Response time: {duration} ms")
+    log_request(chat_id, "message", duration)
     return {"ok": True}
 
 
