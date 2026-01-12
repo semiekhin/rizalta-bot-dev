@@ -34,7 +34,7 @@ _search_cache = {}
 # Заголовки для разных режимов
 MODE_TITLES = {
     "kp": "📋 <b>Коммерческие предложения</b>",
-    "calc": "💰 <b>Расчёты доходности, рассрочки и сравнение RIZALTA vs депозит</b>",
+    "calc": "💰 <b>Расчёты доходности и рассрочки</b>",
     "compare": "📊 <b>Сравнение: Депозит vs RIZALTA</b>",
 }
 
@@ -378,7 +378,7 @@ async def handle_kp_floors_range(chat_id: int, building: int, floor_range: str):
     floors = parse_floor_query(floor_range)
     building_name = get_building_name(building)
     
-    lots = get_lots_filtered(building=building, floors=floors, limit=50)
+    lots = get_lots_filtered(building=building, floors=floors)
     
     if not lots:
         await send_message_inline(
@@ -438,7 +438,7 @@ async def handle_kp_by_area_menu(chat_id: int):
 async def handle_kp_area_range(chat_id: int, min_area: float, max_area: float):
     """Показывает лоты в диапазоне площади."""
     
-    lots = get_lots_filtered(min_area=min_area, max_area=max_area, limit=50)
+    lots = get_lots_filtered(min_area=min_area, max_area=max_area)
     
     if not lots:
         await send_message_inline(
@@ -470,31 +470,51 @@ async def handle_kp_area_range(chat_id: int, min_area: float, max_area: float):
     await send_message_inline(chat_id, text, inline_buttons)
 
 
-async def handle_kp_show_all_area(chat_id: int, min_area: float, max_area: float):
-    """Показывает ВСЕ лоты в диапазоне площади."""
+async def handle_kp_show_all_area(chat_id: int, min_area: float, max_area: float, offset: int = 0):
+    """Показывает лоты в диапазоне площади с пагинацией."""
     
-    lots = get_lots_filtered(min_area=min_area, max_area=max_area, limit=100)
+    PAGE_SIZE = 50  # Лотов на странице
+    
+    lots = get_lots_filtered(min_area=min_area, max_area=max_area)
     
     if not lots:
         await send_message(chat_id, "❌ Лоты не найдены.")
         return
     
+    total = len(lots)
     area_label = f"{int(min_area)}-{int(max_area)}" if max_area < 200 else f"{int(min_area)}+"
     
-    text = f"📐 <b>Все лоты {area_label} м²</b> ({len(lots)} шт.):"
+    # Срез для текущей страницы
+    page_lots = lots[offset:offset + PAGE_SIZE]
+    page_num = (offset // PAGE_SIZE) + 1
+    total_pages = (total + PAGE_SIZE - 1) // PAGE_SIZE
+    
+    if total_pages > 1:
+        text = f"📐 <b>Все лоты {area_label} м²</b> ({total} шт.)\n📄 Страница {page_num}/{total_pages}:"
+    else:
+        text = f"📐 <b>Все лоты {area_label} м²</b> ({total} шт.):"
     
     inline_buttons = []
-    for lot in lots:
+    for lot in page_lots:
         btn_text = f"{lot['code']} (корп.{lot['building']}) — {lot['area']} м² — {format_price_short(lot['price'])}"
         inline_buttons.append([{"text": btn_text, "callback_data": f"kp_lot_{lot['code']}"}])
     
-    inline_buttons.append([{"text": "🔙 Назад", "callback_data": f"kp_area_{int(min_area)}_{int(max_area)}"}])
+    # Кнопки навигации
+    nav_buttons = []
+    if offset > 0:
+        prev_offset = max(0, offset - PAGE_SIZE)
+        nav_buttons.append({"text": "⬅️ Назад", "callback_data": f"kp_show_area_{int(min_area)}_{int(max_area)}_{prev_offset}"})
+    
+    if offset + PAGE_SIZE < total:
+        next_offset = offset + PAGE_SIZE
+        nav_buttons.append({"text": "Вперёд ➡️", "callback_data": f"kp_show_area_{int(min_area)}_{int(max_area)}_{next_offset}"})
+    
+    if nav_buttons:
+        inline_buttons.append(nav_buttons)
+    
+    inline_buttons.append([{"text": "🔙 К площадям", "callback_data": f"kp_area_{int(min_area)}_{int(max_area)}"}])
     
     await send_message_inline(chat_id, text, inline_buttons)
-
-
-# ==================== ПОИСК ПО БЮДЖЕТУ ====================
-
 async def handle_kp_by_budget_menu(chat_id: int):
     """Меню выбора по бюджету."""
     
@@ -520,7 +540,7 @@ async def handle_kp_budget_range(chat_id: int, min_budget: int, max_budget: int)
     min_price = min_budget * 1_000_000
     max_price = max_budget * 1_000_000 if max_budget < 999 else 999_000_000
     
-    lots = get_lots_filtered(min_price=min_price, max_price=max_price, limit=50)
+    lots = get_lots_filtered(min_price=min_price, max_price=max_price)
     
     if not lots:
         await send_message_inline(
@@ -558,7 +578,7 @@ async def handle_kp_show_all_budget(chat_id: int, min_budget: int, max_budget: i
     min_price = min_budget * 1_000_000
     max_price = max_budget * 1_000_000 if max_budget < 999 else 999_000_000
     
-    lots = get_lots_filtered(min_price=min_price, max_price=max_price, limit=100)
+    lots = get_lots_filtered(min_price=min_price, max_price=max_price)
     
     if not lots:
         await send_message(chat_id, "❌ Лоты не найдены.")

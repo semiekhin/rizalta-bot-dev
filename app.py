@@ -699,8 +699,8 @@ async def process_callback(callback: Dict[str, Any]):
         from handlers.kp import handle_kp_show_all_area
         parts = data.replace("kp_show_area_", "").split("_")
         min_area, max_area = float(parts[0]), float(parts[1])
-        await handle_kp_show_all_area(chat_id, min_area, max_area)
-    
+        offset = int(parts[2]) if len(parts) > 2 else 0
+        await handle_kp_show_all_area(chat_id, min_area, max_area, offset)
     elif data.startswith("kp_show_budget_"):
         from handlers.kp import handle_kp_show_all_budget
         parts = data.replace("kp_show_budget_", "").split("_")
