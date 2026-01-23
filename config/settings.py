@@ -113,3 +113,8 @@ TARGET_UNIT_CODES = {"A209", "B210", "A305"}
 # Группа для уведомлений о показах
 SHOWS_GROUP_ID = -1003301897674
 
+
+# ====== Whitelist Корпуса 3 ======
+CORP3_WHITELIST = {
+    512319063,  # Sergio
+}
