@@ -6,3 +6,9 @@ __pycache__/
 node_modules/
 properties.db
 *.db
+
+# Корпус 3 планировки (слишком большие для git)
+data/corp3_layouts/
+
+# Корпус 3 планировки (слишком большие для git)
+data/corp3_layouts/
