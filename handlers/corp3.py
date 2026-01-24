@@ -38,7 +38,7 @@ def load_units() -> List[Dict[str, Any]]:
     with open(DATA_PATH, 'r', encoding='utf-8') as f:
         data = json.load(f)
     
-    _units_cache = data.get("units", [])
+    _units_cache = [u for u in data.get("units", []) if u.get('area', 0) >= 23.5]
     return _units_cache
 
 
