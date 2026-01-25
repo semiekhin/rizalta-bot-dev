@@ -102,7 +102,7 @@ async def handle_send_video(chat_id: int, video_key: str):
     else:
         inline_buttons = [
             [{"text": "🎬 Другие видео", "callback_data": "media_video"}],
-            [{"text": "🔥 Записаться на показ", "callback_data": "online_show"}],
+            [{"text": "✅ Записаться на показ", "callback_data": "online_show"}],
         ]
         await send_message_inline(chat_id, "✅ Видео отправлено!", inline_buttons)
 
@@ -125,6 +125,6 @@ async def handle_send_presentation_file(chat_id: int, pres_key: str):
     else:
         inline_buttons = [
             [{"text": "📚 Другие презентации", "callback_data": "media_presentation"}],
-            [{"text": "🔥 Записаться на показ", "callback_data": "online_show"}],
+            [{"text": "✅ Записаться на показ", "callback_data": "online_show"}],
         ]
         await send_message_inline(chat_id, "✅ Документ отправлен!", inline_buttons)

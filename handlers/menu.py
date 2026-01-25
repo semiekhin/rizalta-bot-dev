@@ -59,7 +59,7 @@ async def handle_help(chat_id: int):
         "💰 Расчёты — доходность, рассрочка, ипотека\n"
         "🎯 Подобрать лот — подбор по бюджету\n"
         "📎 Планировки — PDF-документы\n"
-        "🔥 Записаться — связь с менеджером\n\n"
+        "✅ Записаться — связь с менеджером\n\n"
         "Вы также можете задать любой вопрос текстом."
     )
     await send_message(chat_id, text, with_keyboard=True, buttons=MAIN_MENU_BUTTONS)
@@ -111,7 +111,7 @@ RIZALTA RESORT BELOKURIKHA — премиальный комплекс куро�
     inline_buttons = [
         [{"text": "🏢 Выбрать номер", "callback_data": "kp_menu"}],
         [{"text": "💰 Расчёт доходности", "callback_data": "calc_nav_menu"}],
-        [{"text": "🔥 Записаться на показ", "callback_data": "online_show"}],
+        [{"text": "✅ Записаться на показ", "callback_data": "online_show"}],
     ]
     
     await send_photo_inline(chat_id, "/opt/bot-dev/data/images/rizalta_resort.jpg", text, inline_buttons)

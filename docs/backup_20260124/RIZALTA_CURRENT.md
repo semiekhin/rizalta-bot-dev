@@ -1,0 +1,40 @@
+# Текущий статус RIZALTA
+
+📅 **Последняя сессия:** 21.01.2026
+🏷️ **Версия:** 2.4.4
+
+## ✅ Что сделано (21.01.2026)
+
+### Исправления текста
+- "Подробный расчёт в файле DOCX" → "Подробный расчёт в файле Excel"
+
+### Custom Installment
+- Добавлен В327 в список CUSTOM_INSTALLMENT_UNITS (только 12 мес рассрочка)
+
+### Админ-команда /parse
+- Добавлена команда `/parse` для ручного запуска парсера
+- Доступна только админу (ID 512319063)
+- Таймаут 120 сек, выводит результат в чат
+
+### Изменённые файлы
+- `services/investment_calc.py` — текст "Excel" вместо "DOCX"
+- `services/kp_pdf_generator.py` — В327 в CUSTOM_INSTALLMENT_UNITS
+- `app.py` — команда /parse
+
+## 🔄 Текущее состояние
+
+- **PROD:** работает ✅
+- **DEV:** работает ✅
+- **Watchdog:** работает ✅
+
+## 🔜 Следующие задачи
+
+1. 🟡 Удалить legacy код — `kp_generator.py`, `rizalta_v2/`
+2. 🟡 Техдолг: рефакторинг источников данных
+3. 🟢 Доработка Mini App
+
+## ⚠️ ВАЖНО при деплое
+
+После копирования `app.py` из DEV в PROD — исправить URL Mini App!
+- **PROD:** `https://rizalta-miniapp.vercel.app` (без `?env=dev`)
+- **DEV:** `https://rizalta-miniapp.vercel.app?env=dev`
