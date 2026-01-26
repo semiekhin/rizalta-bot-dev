@@ -854,6 +854,18 @@ async def process_callback(callback: Dict[str, Any]):
         date_str = data.replace("book_date_", "")
         await handle_select_date(chat_id, date_str)
 
+    elif data == "book_tz_moscow":
+        from handlers.booking_calendar import handle_select_timezone
+        await handle_select_timezone(chat_id, "moscow")
+
+    elif data == "book_tz_altai":
+        from handlers.booking_calendar import handle_select_timezone
+        await handle_select_timezone(chat_id, "altai")
+
+    elif data == "book_time_confirmed":
+        from handlers.booking_calendar import handle_time_confirmed
+        await handle_time_confirmed(chat_id, from_user)
+
     elif data.startswith("book_time_"):
         from handlers.booking_calendar import handle_select_time
         time_str = data.replace("book_time_", "")
@@ -863,6 +875,27 @@ async def process_callback(callback: Dict[str, Any]):
         from handlers.booking_calendar import handle_take_booking
         booking_id = int(data.replace("book_take_", ""))
         await handle_take_booking(chat_id, booking_id, from_user)
+
+    elif data == "book_change_tz":
+        from handlers.booking_calendar import handle_change_timezone
+        await handle_change_timezone(chat_id)
+
+    elif data.startswith("book_set_tz_"):
+        from handlers.booking_calendar import handle_set_timezone
+        tz = data.replace("book_set_tz_", "")
+        await handle_set_timezone(chat_id, tz)
+
+    elif data == "book_add_phone":
+        from handlers.booking_calendar import handle_request_phone
+        await handle_request_phone(chat_id)
+
+    elif data == "book_submit":
+        from handlers.booking_calendar import handle_submit_booking
+        await handle_submit_booking(chat_id, from_user)
+
+    elif data == "book_edit_menu":
+        from handlers.booking_calendar import handle_edit_menu
+        await handle_edit_menu(chat_id)
 
     # ===== Domoplaner =====
     elif data == "domo_all":
@@ -1315,7 +1348,7 @@ async def handle_intent(chat_id: int, intent_result: Dict[str, Any], user_info: 
         return
     
     # === FALLBACK: AI CHAT ===
-    await handle_free_text(chat_id, original_text)
+    await handle_free_text(chat_id, original_text, user_info)
 
 
 # ====== ГЛАВНЫЙ РОУТЕР СООБЩЕНИЙ (v2.1) ======
@@ -1325,6 +1358,11 @@ async def process_message(chat_id: int, text: str, user_info: Dict[str, Any]):
     Новый роутер сообщений с GPT Intent Classification.
     Версия 2.1 — поддержка корпусов, этажей, кодов лотов.
     """
+    
+    # === Проверка состояния бронирования ===
+    from handlers.booking_calendar import handle_booking_text_input
+    if await handle_booking_text_input(chat_id, text, user_info):
+        return
     
     # === Админ-команда /parse ===
     ADMIN_ID = 512319063

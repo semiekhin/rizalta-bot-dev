@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 
 from services.telegram import send_message, send_message_inline
+from services.user_profiles import get_profile, save_profile, convert_time, format_dual_time, validate_time
 
 # Путь к базе данных
 BOT_DB_PATH = "/opt/bot-dev/properties.db"
@@ -171,9 +172,25 @@ def clear_booking_state(chat_id: int):
 # === ОБРАБОТЧИКИ ===
 
 async def handle_booking_start(chat_id: int):
-    """Начало бронирования — сразу показываем даты."""
+    """Начало бронирования — выбор часового пояса."""
     init_bookings_db()
     clear_booking_state(chat_id)
+    
+    await send_message_inline(
+        chat_id,
+        "📅 <b>Запись на онлайн-показ</b>\n\n"
+        "Выберите ваш часовой пояс:",
+        [
+            [{"text": "🌴 Москва / Сочи", "callback_data": "book_tz_moscow"}],
+            [{"text": "🏔 Алтай / Сибирь", "callback_data": "book_tz_altai"}],
+            [{"text": "🔙 В меню", "callback_data": "back_to_menu"}]
+        ]
+    )
+
+
+async def handle_select_timezone(chat_id: int, tz: str):
+    """Выбран часовой пояс — показываем даты."""
+    set_booking_state(chat_id, user_tz=tz)
     
     dates = get_available_dates()
     if not dates:
@@ -194,56 +211,34 @@ async def handle_booking_start(chat_id: int):
     if row:
         buttons.append(row)
     
-    buttons.append([{"text": "🔙 В меню", "callback_data": "back_to_menu"}])
+    buttons.append([{"text": "◀️ Назад", "callback_data": "online_show"}, {"text": "🔙 В меню", "callback_data": "back_to_menu"}])
+    
+    tz_name = "Москва/Сочи" if tz == "moscow" else "Алтай/Сибирь"
     
     await send_message_inline(
         chat_id,
-        "📅 <b>Запись на онлайн-показ</b>\n\n"
-        "Выберите дату:",
+        f"🌍 Ваш пояс: <b>{tz_name}</b>\n\n"
+        "📅 Выберите дату:",
         buttons
     )
 
 
 async def handle_select_date(chat_id: int, date_str: str):
-    """Выбрана дата — показываем время."""
-    set_booking_state(chat_id, date=date_str)
-    
-    times = get_available_times(date_str)
-    if not times:
-        await send_message_inline(
-            chat_id,
-            f"😔 К сожалению, на {format_date_display(date_str)} нет свободных слотов.\n\n"
-            "Выберите другую дату.",
-            [[{"text": "◀️ Выбрать другую дату", "callback_data": "online_show"}]]
-        )
-        return
-    
-    # Группируем по 3 кнопки в ряд
-    buttons = []
-    row = []
-    for t in times:
-        row.append({
-            "text": f"🕐 {t}",
-            "callback_data": f"book_time_{t.replace(':', '')}"
-        })
-        if len(row) == 3:
-            buttons.append(row)
-            row = []
-    if row:
-        buttons.append(row)
-    
-    buttons.append([
-        {"text": "◀️ Назад", "callback_data": "online_show"},
-        {"text": "🔙 В меню", "callback_data": "back_to_menu"}
-    ])
+    """Выбрана дата — просим ввести данные одним сообщением."""
+    set_booking_state(chat_id, date=date_str, step="awaiting_booking_info")
     
     date_display = format_date_display(date_str)
     
     await send_message_inline(
         chat_id,
         f"📅 <b>{date_display}</b>\n\n"
-        "Выберите время:",
-        buttons
+        "Напишите <b>одним сообщением</b>:\n"
+        "Время, телефон, имя, агентство\n\n"
+        "<i>Пример:</i>\n"
+        "<code>10:30 +79991234567 Иван АН Риэлт</code>",
+        [
+            [{"text": "◀️ Назад", "callback_data": "online_show"}, {"text": "🔙 В меню", "callback_data": "back_to_menu"}]
+        ]
     )
 
 
@@ -435,3 +430,333 @@ def save_booking_group_message_id(booking_id: int, message_id: int):
     cursor.execute("UPDATE bookings SET group_message_id = ? WHERE id = ?", (message_id, booking_id))
     conn.commit()
     conn.close()
+
+
+async def handle_booking_text_input(chat_id: int, text: str, user_info: dict = None) -> bool:
+    """
+    Обрабатывает текстовый ввод в процессе бронирования.
+    Возвращает True если сообщение обработано, False если нет активного состояния.
+    """
+    state = get_booking_state(chat_id)
+    step = state.get("step")
+    
+    if not step:
+        return False
+    
+    # === Шаг: ввод всех данных одним сообщением ===
+    if step == "awaiting_booking_info":
+        # Парсим: время, телефон, имя, агентство
+        parsed = parse_booking_message(text)
+        
+        if not parsed.get("time"):
+            await send_message_inline(
+                chat_id,
+                "❌ Не удалось распознать время.\n\n"
+                "Напишите в формате:\n"
+                "<code>10:30 +79991234567 Иван АН Риэлт</code>",
+                [[{"text": "◀️ Назад", "callback_data": "online_show"}]]
+            )
+            return True
+        
+        # Сохраняем
+        set_booking_state(
+            chat_id,
+            time=parsed["time"],
+            realtor_phone=parsed.get("phone", ""),
+            contact=parsed.get("contact", ""),
+            step="confirm_booking"
+        )
+        
+        # Показываем подтверждение
+        await show_booking_confirmation(chat_id, user_info)
+        return True
+    
+    # === Шаг: ввод телефона (если добавляют отдельно) ===
+    if step == "awaiting_phone":
+        import re
+        phone_match = re.search(r'[\+]?[0-9]{10,12}', text.replace(" ", ""))
+        if phone_match:
+            phone = phone_match.group()
+            save_profile(chat_id, phone=phone)
+            set_booking_state(chat_id, realtor_phone=phone, step="confirm_booking")
+            await show_booking_confirmation(chat_id, user_info)
+        else:
+            await send_message(chat_id, "❌ Не удалось распознать номер. Введите телефон цифрами.")
+        return True
+    
+    return False
+
+
+def parse_booking_message(text: str) -> dict:
+    """
+    Парсит сообщение формата: 10:30 89181011091 Сергей Меганедвижка
+    Возвращает: {time, phone, contact}
+    """
+    import re
+    result = {"time": None, "phone": "", "contact": ""}
+    
+    # Ищем время (формат HH:MM или H:MM)
+    time_match = re.search(r'\b(\d{1,2}[:\.][0-5]\d)\b', text)
+    if time_match:
+        time_str = time_match.group(1).replace(".", ":")
+        validated = validate_time(time_str)
+        if validated:
+            result["time"] = validated
+    
+    # Ищем телефон: +79181011091 или 89181011091 (11 цифр)
+    phone_match = re.search(r'[\+]?[78]\d{10}', text)
+    if not phone_match:
+        # Может быть без 8/7: 9181011091 (10 цифр)
+        phone_match = re.search(r'\b9\d{9}\b', text)
+    
+    if phone_match:
+        phone = re.sub(r'[^\d]', '', phone_match.group())
+        result["phone"] = phone
+    
+    # Остальное — контакт (имя + агентство)
+    remaining = text
+    if time_match:
+        remaining = remaining.replace(time_match.group(), "")
+    if phone_match:
+        remaining = remaining.replace(phone_match.group(), "")
+    
+    # Убираем лишние пробелы
+    contact = " ".join(remaining.split())
+    result["contact"] = contact
+    
+    return result
+
+
+async def show_booking_confirmation(chat_id: int, user_info: dict = None):
+    """Показывает итоговое подтверждение бронирования."""
+    state = get_booking_state(chat_id)
+    
+    date_str = state.get("date")
+    user_time = state.get("time")  # Время в поясе риэлтора
+    user_tz = state.get("user_tz", "altai")
+    contact = state.get("contact", "")
+    phone = state.get("realtor_phone", "")
+    
+    # Fallback на данные из Telegram
+    username = user_info.get("username", "") if user_info else ""
+    if not contact and user_info:
+        first = user_info.get("first_name", "")
+        last = user_info.get("last_name", "")
+        contact = f"{first} {last}".strip()
+    
+    # Сохраняем username
+    set_booking_state(chat_id, username=username)
+    
+    date_display = format_date_display(date_str)
+    
+    # Формируем строку времени — сначала пояс риэлтора
+    if user_tz == "moscow":
+        other_time = convert_time(user_time, "moscow", "altai")
+        time_str = f"{user_time} (Мск) — {other_time} (Алтай)"
+    else:
+        other_time = convert_time(user_time, "altai", "moscow")
+        time_str = f"{user_time} (Алтай) — {other_time} (Мск)"
+    
+    text = f"✅ <b>Проверьте заявку:</b>\n\n"
+    text += f"📅 {date_display}\n"
+    text += f"🕐 {time_str}\n\n"
+    
+    if contact:
+        text += f"👤 {contact}\n"
+    if phone:
+        text += f"📱 {phone}\n"
+    if username:
+        text += f"💬 @{username}\n"
+    
+    buttons = [
+        [{"text": "✅ Отправить заявку", "callback_data": "book_submit"}],
+        [{"text": "✏️ Изменить", "callback_data": "online_show"}],
+        [{"text": "❌ Отмена", "callback_data": "back_to_menu"}]
+    ]
+    
+    # Если нет телефона — предлагаем добавить
+    if not phone:
+        buttons.insert(1, [{"text": "📱 Добавить телефон", "callback_data": "book_add_phone"}])
+    
+    await send_message_inline(chat_id, text, buttons)
+
+
+async def handle_time_confirmed(chat_id: int, user_info: dict = None):
+    """Время подтверждено — запрашиваем описание показа."""
+    state = get_booking_state(chat_id)
+    
+    if not state.get("time"):
+        await handle_booking_start(chat_id)
+        return
+    
+    set_booking_state(chat_id, step="awaiting_description")
+    
+    await send_message_inline(
+        chat_id,
+        "📝 <b>Что показываем клиенту?</b>\n\n"
+        "Напишите кратко:\n"
+        "• Корпус, тип апартамента\n"
+        "• Бюджет клиента\n"
+        "• Особые пожелания",
+        [[{"text": "◀️ Назад", "callback_data": f"book_date_{state.get('date')}"}]]
+    )
+
+
+async def handle_change_timezone(chat_id: int):
+    """Смена часового пояса."""
+    state = get_booking_state(chat_id)
+    profile = get_profile(chat_id)
+    current_tz = profile.get("timezone", "altai") if profile else "altai"
+    
+    altai_mark = "✅ " if current_tz == "altai" else ""
+    moscow_mark = "✅ " if current_tz == "moscow" else ""
+    
+    await send_message_inline(
+        chat_id,
+        "🌍 <b>Выберите ваш часовой пояс:</b>\n\n"
+        "Это нужно для корректного отображения времени показа.",
+        [
+            [{"text": f"{altai_mark}🏔 Алтай / Сибирь (UTC+7)", "callback_data": "book_set_tz_altai"}],
+            [{"text": f"{moscow_mark}🌴 Москва / Сочи (UTC+3)", "callback_data": "book_set_tz_moscow"}],
+            [{"text": "◀️ Назад", "callback_data": f"book_date_{state.get('date', '')}"}]
+        ]
+    )
+
+
+async def handle_set_timezone(chat_id: int, tz: str):
+    """Установка часового пояса."""
+    if tz not in ("altai", "moscow"):
+        tz = "altai"
+    
+    save_profile(chat_id, timezone=tz)
+    
+    state = get_booking_state(chat_id)
+    date_str = state.get("date")
+    
+    tz_name = "Алтай (UTC+7)" if tz == "altai" else "Москва (UTC+3)"
+    
+    await send_message(chat_id, f"✅ Часовой пояс установлен: {tz_name}")
+    
+    # Возвращаемся к вводу времени
+    if date_str:
+        await handle_select_date(chat_id, date_str)
+    else:
+        await handle_booking_start(chat_id)
+
+
+async def handle_request_phone(chat_id: int):
+    """Запрос телефона."""
+    set_booking_state(chat_id, step="awaiting_phone")
+    
+    # Используем ReplyKeyboard с request_contact
+    from services.telegram import send_message_keyboard
+    
+    await send_message_keyboard(
+        chat_id,
+        "📱 <b>Отправьте ваш контакт</b>\n\n"
+        "Нажмите кнопку ниже или напишите номер вручную:",
+        [[{"text": "📲 Отправить контакт", "request_contact": True}]],
+        one_time=True
+    )
+
+
+async def handle_submit_booking(chat_id: int, from_user: dict = None):
+    """Отправка заявки."""
+    state = get_booking_state(chat_id)
+    
+    date_str = state.get("date")
+    user_time = state.get("time")  # Время в поясе риэлтора
+    user_tz = state.get("user_tz", "altai")
+    contact = state.get("contact", "")
+    phone = state.get("realtor_phone", "")
+    username = state.get("username", "")
+    
+    if not date_str or not user_time:
+        await handle_booking_start(chat_id)
+        return
+    
+    # Конвертируем в время Алтая для хранения (единый стандарт)
+    if user_tz == "moscow":
+        altai_time = convert_time(user_time, "moscow", "altai")
+    else:
+        altai_time = user_time
+    
+    # Сохраняем в БД (всегда в Алтайском времени)
+    conn = sqlite3.connect(BOT_DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO bookings (
+            chat_id, username, specialist_id, specialist_name,
+            booking_date, booking_time, status,
+            realtor_name, realtor_phone, show_description, timezone
+        ) VALUES (?, ?, 0, '', ?, ?, 'pending', ?, ?, '', ?)
+    """, (chat_id, username, date_str, altai_time, contact, phone, user_tz))
+    booking_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    
+    date_display = format_date_display(date_str)
+    
+    # Формируем строку времени — сначала пояс риэлтора
+    if user_tz == "moscow":
+        other_time = convert_time(user_time, "moscow", "altai")
+        time_str = f"{user_time} (Мск) — {other_time} (Алтай)"
+    else:
+        other_time = convert_time(user_time, "altai", "moscow")
+        time_str = f"{user_time} (Алтай) — {other_time} (Мск)"
+    
+    # Очищаем состояние
+    clear_booking_state(chat_id)
+    
+    # Уведомление риэлтору
+    await send_message_inline(
+        chat_id,
+        f"✅ <b>Заявка #{booking_id} отправлена!</b>\n\n"
+        f"📅 {date_display}\n"
+        f"🕐 {time_str}\n\n"
+        "Ожидайте подтверждения от специалиста.",
+        [[{"text": "🔙 В главное меню", "callback_data": "back_to_menu"}]]
+    )
+    
+    # Отправляем в группу показов
+    try:
+        from config.settings import SHOWS_GROUP_ID
+        from services.telegram import send_message_inline_return_id
+        
+        group_text = f"🆕 <b>Новая заявка на онлайн-показ</b>\n\n"
+        group_text += f"📅 {date_display}\n"
+        group_text += f"🕐 {time_str}\n\n"
+        
+        if contact:
+            group_text += f"👤 {contact}\n"
+        if phone:
+            group_text += f"📱 {phone}\n"
+        if username:
+            group_text += f"💬 @{username}\n"
+        
+        group_text += f"\n🆔 Заявка: #{booking_id}"
+        
+        group_buttons = [[{"text": "🙋 Взять заявку", "callback_data": f"book_take_{booking_id}"}]]
+        
+        if SHOWS_GROUP_ID:
+            msg_id = await send_message_inline_return_id(SHOWS_GROUP_ID, group_text, group_buttons)
+            if msg_id:
+                save_booking_group_message_id(booking_id, msg_id)
+    except Exception as e:
+        print(f"[BOOKING] Group notify error: {e}")
+
+
+async def handle_edit_menu(chat_id: int):
+    """Меню редактирования заявки."""
+    state = get_booking_state(chat_id)
+    
+    await send_message_inline(
+        chat_id,
+        "✏️ <b>Что изменить?</b>",
+        [
+            [{"text": "📅 Дата", "callback_data": "online_show"}],
+            [{"text": "🕐 Время", "callback_data": f"book_date_{state.get('date', '')}"}],
+            [{"text": "📝 Описание", "callback_data": "book_time_confirmed"}],
+            [{"text": "◀️ Назад", "callback_data": "book_back_to_confirm"}]
+        ]
+    )
