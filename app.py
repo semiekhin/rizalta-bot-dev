@@ -1353,6 +1353,71 @@ async def handle_intent(chat_id: int, intent_result: Dict[str, Any], user_info: 
 
 # ====== ГЛАВНЫЙ РОУТЕР СООБЩЕНИЙ (v2.1) ======
 
+
+async def handle_whitelist_command(chat_id: int, text: str):
+    """Управление whitelist Корпуса 3: /wl list | add | remove"""
+    import sqlite3
+    db_path = "/opt/bot-dev/properties.db"
+    parts = text.strip().split(maxsplit=2)
+    cmd = parts[1] if len(parts) > 1 else "help"
+    
+    if cmd == "list":
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT chat_id, name, added_at FROM corp3_whitelist ORDER BY added_at")
+        rows = cursor.fetchall()
+        conn.close()
+        if not rows:
+            await send_message(chat_id, "📋 Whitelist пуст.")
+            return
+        lines = ["📋 <b>Whitelist Корпуса 3:</b>", ""]
+        for i, (cid, name, added) in enumerate(rows, 1):
+            lines.append(f"{i}. <code>{cid}</code> — {name or "без имени"}")
+        lines.append(f"\n<i>Всего: {len(rows)}</i>")
+        await send_message(chat_id, "\n".join(lines))
+    
+    elif cmd == "add" and len(parts) >= 2:
+        try:
+            add_parts = parts[2].split(maxsplit=1) if len(parts) > 2 else []
+            new_id = int(add_parts[0])
+            name = add_parts[1] if len(add_parts) > 1 else None
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            cursor.execute("INSERT OR IGNORE INTO corp3_whitelist (chat_id, name) VALUES (?, ?)", (new_id, name))
+            conn.commit()
+            affected = cursor.rowcount
+            conn.close()
+            if affected:
+                await send_message(chat_id, f"✅ Добавлен: <code>{new_id}</code> — {name or "без имени"}")
+            else:
+                await send_message(chat_id, f"⚠️ <code>{new_id}</code> уже в whitelist.")
+        except (ValueError, IndexError):
+            await send_message(chat_id, "❌ Формат: /wl add 123456789 Имя")
+    
+    elif cmd == "remove" and len(parts) >= 3:
+        try:
+            del_id = int(parts[2])
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM corp3_whitelist WHERE chat_id = ?", (del_id,))
+            conn.commit()
+            affected = cursor.rowcount
+            conn.close()
+            if affected:
+                await send_message(chat_id, f"✅ Удалён: <code>{del_id}</code>")
+            else:
+                await send_message(chat_id, f"⚠️ <code>{del_id}</code> не найден в whitelist.")
+        except ValueError:
+            await send_message(chat_id, "❌ Формат: /wl remove 123456789")
+    
+    else:
+        await send_message(chat_id, """📋 <b>Команды whitelist:</b>
+
+/wl list — показать всех
+/wl add 123456789 Имя — добавить
+/wl remove 123456789 — удалить""")
+
+
 async def process_message(chat_id: int, text: str, user_info: Dict[str, Any]):
     """
     Новый роутер сообщений с GPT Intent Classification.
@@ -1371,6 +1436,10 @@ async def process_message(chat_id: int, text: str, user_info: Dict[str, Any]):
     if text == "/corp3":
         from handlers.corp3 import handle_corp3_start
         await handle_corp3_start(chat_id)
+        return
+    # === Команда /wl (whitelist управление, только админ) ===
+    if text.startswith("/wl") and chat_id == ADMIN_ID:
+        await handle_whitelist_command(chat_id, text)
         return
     if text == "/parse" and chat_id == ADMIN_ID:
         import subprocess
