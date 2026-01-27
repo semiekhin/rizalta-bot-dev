@@ -1429,6 +1429,11 @@ async def process_message(chat_id: int, text: str, user_info: Dict[str, Any]):
     if await handle_booking_text_input(chat_id, text, user_info):
         return
     
+    # === Проверка состояния поиска по коду в Корпусе 3 ===
+    from handlers.corp3 import handle_corp3_text
+    if await handle_corp3_text(chat_id, text):
+        return
+    
     # === Админ-команда /parse ===
     ADMIN_ID = 512319063
 
