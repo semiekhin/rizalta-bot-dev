@@ -350,7 +350,7 @@ async def handle_take_booking(chat_id: int, booking_id: int, from_user: dict):
         return
     
     if booking["status"] != "pending":
-        await send_message(chat_id, "ℹ️ Эта заявка уже обработана.")
+        pass  # Тихо игнорируем повторное нажатие
         return
     
     # Получаем данные специалиста
