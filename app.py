@@ -242,7 +242,7 @@ async def api_get_lots(building: int = None, floor: int = None, status: str = No
     """API для Mini App — список лотов."""
     import sqlite3
     
-    conn = sqlite3.connect("/opt/bot/properties.db")
+    conn = sqlite3.connect("/opt/bot-dev/properties.db")
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
