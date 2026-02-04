@@ -573,11 +573,15 @@ async def process_callback(callback: Dict[str, Any]):
         await handle_kp_floor(chat_id, building, floor)
     
     elif data.startswith("kp_lot_"):
-        from handlers.kp import handle_kp_lot
         parts = data.replace("kp_lot_", "").split("_")
         code = parts[0]
         building = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else None
-        await handle_kp_lot(chat_id, code, building)
+        if building == 3:
+            from handlers.corp3 import handle_corp3_lot_detail
+            await handle_corp3_lot_detail(chat_id, code)
+        else:
+            from handlers.kp import handle_kp_lot
+            await handle_kp_lot(chat_id, code, building)
     
     elif data.startswith("kp_gen_"):
         from handlers.kp import handle_kp_generate
