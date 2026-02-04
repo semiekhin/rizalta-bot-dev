@@ -358,6 +358,11 @@ async def telegram_webhook(request: Request):
     
     chat_id = msg["chat"]["id"]
     
+    # Игнорируем сообщения из групповых чатов (бот отвечает только в личных)
+    chat_type = msg["chat"].get("type", "private")
+    if chat_type != "private":
+        return {"ok": True}
+    
     text = (msg.get("text") or "").strip()
     
     # Обработка контакта
