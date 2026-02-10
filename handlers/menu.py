@@ -82,11 +82,21 @@ async def handle_back(chat_id: int):
 
 async def handle_main_menu(chat_id: int):
     """Показ главного меню."""
+    from handlers.corp3 import is_whitelisted
+
+    webapp_url = "https://webapp.rizaltaservice.ru/"
+    if is_whitelisted(chat_id):
+        webapp_url += "?token=MkKGpwCAsq6IF3RtRH7bvg"
+
+    buttons = [
+        ["🔥Купи себе отель!", {"text": "🌐 Web App (beta)", "web_app": {"url": webapp_url}}],
+    ] + MAIN_MENU_BUTTONS[1:]
+
     await send_message(
         chat_id,
         "Главное меню:",
         with_keyboard=True,
-        buttons=MAIN_MENU_BUTTONS,
+        buttons=buttons,
     )
 
 
