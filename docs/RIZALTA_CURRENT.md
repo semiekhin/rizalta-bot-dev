@@ -40,7 +40,7 @@
 - **Корпус 3 «Digital»:** 282 лота (corp3_units.json, whitelist)
 - **Mini App Vercel:** работает ✅
 - **Watchdog:** работает ✅
-- **WebApp:** работает ✅ v0.6.0 (webapp.rizaltaservice.ru)
+- **WebApp:** работает ✅ v0.6.1 (webapp.rizaltaservice.ru)
 
 ## 🔜 Следующие задачи
 
@@ -50,7 +50,8 @@
 4. 🟡 Миграция на российский сервер
 5. 🟡 **Модульные README** — handlers/README.md, services/README.md
 6. 🟢 **WebApp Phase 3.1** — белый список + Корпус 3 + systemd ✅
-7. 🔴 **WebApp Phase 3.2** — AI чат (DeepSeek V3.2), отправка заявок
+7. 🟢 **WebApp Phase 3.2.1** — уведомления (TG+email), compare PDF, фиксы скачивания ✅
+8. 🔴 **WebApp Phase 3.2.2** — AI чат (DeepSeek V3.2), секретарь/фиксация
 
 
 
@@ -63,3 +64,16 @@
 - **Catalog.jsx:** упрощены кнопки фильтров: [Свободно] + [Фильтры] (убраны Все/Бронь/Продано)
 - **systemd:** webapp.service (автозапуск, Restart=always)
 - **Версия webapp:** v0.6.0 (ветка webapp)
+
+### WebApp: Phase 3.2.1 — Уведомления + Compare PDF + фиксы (10.02.2026)
+- **Уведомления заявок:** Telegram (группа «Показы Rizalta») + Email (2 менеджера)
+- **backend/.env:** TELEGRAM_BOT_TOKEN, MANAGER_CHAT_ID, SMTP-*, MANAGER_EMAIL
+- **services/notifications.py:** send_telegram_message, send_email, notify_showing_request
+- **Compare PDF:** /api/download-compare-pdf — генерация PDF «Депозит vs RIZALTA» (wkhtmltopdf)
+- **services/compare_pdf_generator.py + investment_compare.py:** скопированы из бота
+- **Фикс скачиваний:** window.open вместо Telegram.WebApp.openLink (PDF/Excel/презентации/договоры)
+- **Фикс модалок:** pb-24 в ROI и Deposit модалках (кнопки не перекрываются навбаром)
+- **Booking.jsx:** валидация телефона + error state
+- **LotDetail.jsx:** кнопка «Скачать PDF сравнение» в модалке депозита (вместо Excel)
+- **.gitignore:** webapp.db, __pycache__/ исключены
+- **Версия webapp:** v0.6.1 (ветка webapp, коммит 10ead12)
