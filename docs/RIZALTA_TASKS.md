@@ -2,6 +2,15 @@
 
 ## ✅ Выполнено
 
+### 11.02.2026: МГП калькулятор + обновление К3 + презентация + Web App кнопка
+- МГП калькулятор: 2 модели (номерной + коммерческий), текст + PDF
+- Новые файлы: services/mgp_calculator.py, handlers/mgp.py
+- Обновлены статусы Корпуса 3: 150 sold / 132 available (Excel 09.02)
+- Замена презентации RIZALTA (43 MB)
+- Web App кнопка в DEV меню (whitelist → URL с токеном)
+- Ипотека: код в PROD, кнопка скрыта (готово к включению)
+- Версия: 2.6.0
+
 ### 09.02.2026: Фикс handle_kp_building_all + ARCHITECTURE/CALLBACKS
 - Критический баг: кнопка «Все лоты корпуса» → ImportError 500 (функция не существовала)
 - Написана handle_kp_building_all в handlers/kp.py (пагинация через _search_cache)
@@ -49,8 +58,12 @@
 ## 🟡 Средний приоритет
 
 ### Деплой ипотечного калькулятора
-- **Файлы:** mortgage_config.json, mortgage_calculator.py, mortgage_pdf_generator.py, mortgage.py + правки kp.py, app.py
-- **Статус:** Готово в DEV, ждёт проверки расчётов
+- **Файлы:** mortgage_config.json, mortgage_calculator.py, mortgage.py + правки kp.py, app.py
+- **Статус:** Код и конфиг в PROD, кнопка скрыта. Для включения: добавить строку в /opt/bot/handlers/kp.py
+
+### Деплой Web App кнопки в PROD
+- **Статус:** Готово в DEV, не задеплоено
+- **Действие:** скопировать menu.py или добавить кнопку вручную
 
 ### Вопрос "11 лет / полный цикл"
 - **Описание:** В кнопке "11 лет (полный цикл)" расчёт до 2035, а не 2036

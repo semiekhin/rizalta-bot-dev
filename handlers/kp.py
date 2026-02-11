@@ -241,6 +241,7 @@ async def handle_nav_lot(chat_id: int, code: str, building: int = None, mode: st
     if not is_custom:
         inline_buttons.append([{"text": "📄 КП с рассрочкой 12+18 мес", "callback_data": f"kp_gen_{lot_id}_full"}])
     inline_buttons.append([{"text": "📊 Расчёт доходности", "callback_data": f"calc_roi_code_{lot['code']}_{lot['building']}"}])
+    inline_buttons.append([{"text": "📊 Расчёт МГП", "callback_data": f"mgp_calc_{lot['code']}_{lot['building']}_{int(lot['area']*10)}"}])
     inline_buttons.extend([
         [{"text": "💳 Варианты оплаты", "callback_data": f"calc_finance_code_{lot['code']}_{lot['building']}"}],
         [{"text": "🏦 Ипотека", "callback_data": f"mortgage_{lot['code']}_{lot['building']}"}],
@@ -748,6 +749,7 @@ async def handle_kp_lot(chat_id: int, code: str, building: int = None):
     if not is_custom:
         inline_buttons.append([{"text": "📄 КП с рассрочкой 12+18 мес", "callback_data": f"kp_gen_{lot_id}_full"}])
     inline_buttons.append([{"text": "📊 Расчёт доходности", "callback_data": f"calc_roi_code_{lot['code']}_{lot['building']}"}])
+    inline_buttons.append([{"text": "📊 Расчёт МГП", "callback_data": f"mgp_calc_{lot['code']}_{lot['building']}_{int(lot['area']*10)}"}])
     inline_buttons.extend([
         [{"text": "💳 Варианты оплаты", "callback_data": f"calc_finance_code_{lot['code']}_{lot['building']}"}],
         [{"text": "🏦 Ипотека", "callback_data": f"mortgage_{lot['code']}_{lot['building']}"}],

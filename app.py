@@ -847,6 +847,22 @@ async def process_callback(callback: Dict[str, Any]):
         from handlers.calc_dynamic import handle_calc_roi_by_code
         await handle_calc_roi_by_code(chat_id, code, building)
 
+    elif data.startswith("mgp_pdf_"):
+        # mgp_pdf_{code}_{building}_{area10}
+        parts = data.replace("mgp_pdf_", "").rsplit("_", 2)
+        code, building, area10 = parts[0], int(parts[1]), int(parts[2])
+        area = area10 / 10.0
+        from handlers.mgp import handle_mgp_pdf
+        await handle_mgp_pdf(chat_id, code, area, building if building > 0 else None)
+
+    elif data.startswith("mgp_calc_"):
+        # mgp_calc_{code}_{building}_{area10}
+        parts = data.replace("mgp_calc_", "").rsplit("_", 2)
+        code, building, area10 = parts[0], int(parts[1]), int(parts[2])
+        area = area10 / 10.0
+        from handlers.mgp import handle_mgp_calc
+        await handle_mgp_calc(chat_id, code, area, building if building > 0 else None)
+
     elif data.startswith("calc_finance_code_"):
         parts = data.replace("calc_finance_code_", "").rsplit("_", 1)
         code, building = parts[0], int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else None
