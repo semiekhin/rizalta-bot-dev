@@ -47,7 +47,7 @@ async def handle_start(chat_id: int, text: str = "", user_info: Dict[str, Any] =
         "⬇️ Выберите необходимый раздел в меню ниже или задайте мне свой вопрос!"
     )
     
-    await send_message(chat_id, welcome, with_keyboard=True, buttons=MAIN_MENU_BUTTONS)
+    await handle_main_menu(chat_id, welcome)
 
 
 async def handle_help(chat_id: int):
@@ -74,13 +74,13 @@ async def handle_back(chat_id: int):
     
     await send_message(
         chat_id,
-        "Главное меню:",
+        text,
         with_keyboard=True,
         buttons=MAIN_MENU_BUTTONS,
     )
 
 
-async def handle_main_menu(chat_id: int):
+async def handle_main_menu(chat_id: int, text: str = "Главное меню:"):
     """Показ главного меню."""
     from handlers.corp3 import is_whitelisted
 
@@ -94,7 +94,7 @@ async def handle_main_menu(chat_id: int):
 
     await send_message(
         chat_id,
-        "Главное меню:",
+        text,
         with_keyboard=True,
         buttons=buttons,
     )

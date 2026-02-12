@@ -1051,7 +1051,7 @@
       "rooms": 1,
       "area": 23.5,
       "price": 14452500,
-      "status": "available",
+      "status": "sold",
       "layout_path": "/opt/bot-dev/data/corp3_layouts/2 ЭТАЖ/B_203.jpg",
       "block_section": 3
     },
@@ -3235,7 +3235,7 @@
       "rooms": 1,
       "area": 25.8,
       "price": 15738000,
-      "status": "available",
+      "status": "sold",
       "layout_path": "/opt/bot-dev/data/corp3_layouts/6 ЭТАЖ/B_610.jpg",
       "block_section": 3
     },
@@ -3274,7 +3274,7 @@
       "rooms": 1,
       "area": 25.8,
       "price": 15738000,
-      "status": "available",
+      "status": "sold",
       "layout_path": "/opt/bot-dev/data/corp3_layouts/6 ЭТАЖ/B_621.jpg",
       "block_section": 3
     },
