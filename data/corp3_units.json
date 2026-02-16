@@ -752,7 +752,7 @@
       "rooms": 1,
       "area": 31.1,
       "price": 18628900,
-      "status": "available",
+      "status": "sold",
       "layout_path": "/opt/bot-dev/data/corp3_layouts/6 ЭТАЖ/A_609.jpg",
       "block_section": 3
     },
@@ -1064,7 +1064,7 @@
       "rooms": 1,
       "area": 23.5,
       "price": 14452500,
-      "status": "available",
+      "status": "sold",
       "layout_path": "/opt/bot-dev/data/corp3_layouts/2 ЭТАЖ/B_205.jpg",
       "block_section": 3
     },
@@ -1077,7 +1077,7 @@
       "rooms": 1,
       "area": 23.5,
       "price": 14452500,
-      "status": "available",
+      "status": "sold",
       "layout_path": "/opt/bot-dev/data/corp3_layouts/2 ЭТАЖ/B_207.jpg",
       "block_section": 3
     },
@@ -1090,7 +1090,7 @@
       "rooms": 1,
       "area": 23.5,
       "price": 14452500,
-      "status": "available",
+      "status": "sold",
       "layout_path": "/opt/bot-dev/data/corp3_layouts/2 ЭТАЖ/B_209.jpg",
       "block_section": 3
     },
@@ -1389,7 +1389,7 @@
       "rooms": 1,
       "area": 36.8,
       "price": 22043200,
-      "status": "sold",
+      "status": "available",
       "layout_path": "/opt/bot-dev/data/corp3_layouts/4 ЭТАЖ/A_403.jpg",
       "block_section": 3
     },
@@ -1857,7 +1857,7 @@
       "rooms": 1,
       "area": 23.5,
       "price": 14452500,
-      "status": "sold",
+      "status": "available",
       "layout_path": "/opt/bot-dev/data/corp3_layouts/6 ЭТАЖ/B_607.jpg",
       "block_section": 3
     },
@@ -3105,7 +3105,7 @@
       "rooms": 1,
       "area": 23.5,
       "price": 14452500,
-      "status": "sold",
+      "status": "available",
       "layout_path": "/opt/bot-dev/data/corp3_layouts/5 ЭТАЖ/B_525.jpg",
       "block_section": 3
     },
@@ -3274,7 +3274,7 @@
       "rooms": 1,
       "area": 25.8,
       "price": 15738000,
-      "status": "sold",
+      "status": "available",
       "layout_path": "/opt/bot-dev/data/corp3_layouts/6 ЭТАЖ/B_621.jpg",
       "block_section": 3
     },
@@ -3391,7 +3391,7 @@
       "rooms": 1,
       "area": 24.7,
       "price": 15067000,
-      "status": "available",
+      "status": "sold",
       "layout_path": "/opt/bot-dev/data/corp3_layouts/6 ЭТАЖ/B_616.jpg",
       "block_section": 3
     },
