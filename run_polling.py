@@ -14,7 +14,7 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TG_API = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 
 # Импортируем обработчики из app.py
-from app import process_callback, process_message, process_voice_message, handle_contact_shared
+from app import process_callback, process_message, process_voice_message, handle_contact_shared, handle_corp3_excel_update
 from services.monitoring import log_request, monitoring_loop
 
 async def get_updates(session, offset=None, timeout=30):
@@ -69,6 +69,14 @@ async def handle_update(upd):
     if voice:
         await process_voice_message(chat_id, voice, msg.get("from", {}))
         return
+    
+    # Обработка документа (Excel актуализация К3, только админ)
+    document = msg.get("document")
+    if document and chat_id in [512319063, 8000703751]:
+        file_name = document.get("file_name", "")
+        if file_name.endswith((".xlsx", ".xls")):
+            await handle_corp3_excel_update(chat_id, document)
+            return
     
     if not text:
         return
