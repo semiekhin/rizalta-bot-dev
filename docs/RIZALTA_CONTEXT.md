@@ -112,3 +112,21 @@ AI-консультант для риэлторов. Инвестиционна�
 - **Репо:** github.com/semiekhin/rizalta-miniapp (ветка webapp)
 - **Версия:** v0.9.2 (GPT-5.2 финансовый советник)
 - **Стек:** Preact + Tailwind CSS 4 + Vite 7, FastAPI, GPT-5.2 Responses API
+
+## WebApp: Сессия 02.03.2026 Part 3 (v0.9.3 → v0.9.5)
+
+### Инвестиционные метрики
+- NOI, Cap Rate, Cash-on-Cash (100%/30%), Equity Multiple добавлены в calculator.py
+- LotReportCard показывает 6 метрик (2x3 grid)
+- INVESTMENT_METHODOLOGY.md — документация формул
+
+### AI-driven Portfolio (Level 3)
+- gpt-4o-mini selector выбирает лоты → Python считает → GPT-5.2 аналитика
+- 3 сценария: премиальный лот / портфель 100% / макс. плечо (рассрочка 30%)
+- PortfolioReportCardV2 с ScenarioCard + reasoning + vs deposit
+- Budget guard — Python валидация после AI selection
+
+### Известные проблемы
+- AI заполняет ~51% бюджета в сценарии 3 (нужно ≥90%)
+- Дублирование лотов между сценариями
+- Ценовая непоследовательность (скидка vs оригинал)
