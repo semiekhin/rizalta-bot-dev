@@ -35,19 +35,14 @@ def get_building_name(building: int) -> str:
 
 
 def download_image_b64(url: str) -> str:
-    """Скачивает изображение, конвертирует CMYK->RGB, возвращает base64."""
+    """Скачивает изображение, возвращает base64."""
+    if not url:
+        return ""
     try:
-        from PIL import Image
-        from io import BytesIO
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = resp.read()
-        img = Image.open(BytesIO(data))
-        if img.mode == "CMYK":
-            img = img.convert("RGB")
-        buf = BytesIO()
-        img.save(buf, format="JPEG", quality=90)
-        return base64.b64encode(buf.getvalue()).decode()
+        return base64.b64encode(data).decode()
     except Exception as e:
         print(f"[TRANCHE PDF] Image download error: {e}")
         return ""
@@ -142,7 +137,7 @@ body {{ font-family: 'Montserrat', Arial, sans-serif; background: #F6F0E3; color
 .lot-body {{ padding: 15px 20px; overflow: hidden; }}
 .lot-info {{ float: left; width: 55%; }}
 .lot-layout {{ float: right; width: 40%; text-align: center; }}
-.layout-img {{ max-width: 100%; max-height: 220px; }}
+.layout-img {{ max-width: 100%; max-height: 220px; filter: contrast(1.8) brightness(0.95); }}
 .lot-row {{ padding: 6px 0; border-bottom: 1px solid rgba(49,61,32,0.12); overflow: hidden; }}
 .lot-row:last-child {{ border-bottom: none; }}
 .lot-label {{ float: left; font-size: 13px; }}
