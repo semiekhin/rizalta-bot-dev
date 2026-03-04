@@ -461,3 +461,26 @@ grep -rn "/opt/bot-dev" /opt/bot/ --include="*.py" | grep -v __pycache__
 ### ✅ GitHub CDN кеш
 - raw.githubusercontent.com отдаёт стейл (кеш месяцами)
 - Решение: использовать GitHub API `https://api.github.com/repos/.../contents/docs/FILE`
+
+---
+
+## ✅ Что сделано 04.03.2026 (сессия 2) — Фикс планировки в PDF траншевой ипотеки
+
+### Проблема
+- Планировка не отображалась в PDF траншевой ипотеки
+- Причина 1: Pillow не был установлен в venv (`/opt/bot-dev/venv/`) — только в системном Python
+- Причина 2: Лишняя перекодировка JPEG→PNG через PIL теряла качество; после фикса PIL — планировка была тусклой
+
+### Решение
+- Установлен Pillow в venv: `/opt/bot-dev/venv/bin/pip install Pillow`
+- `download_image_b64()` упрощена — качаем сырые байты без PIL (как в `kp_pdf_generator.py`)
+- Добавлен CSS filter на `.layout-img`: `filter: contrast(1.8) brightness(0.95)`
+
+### Файлы
+- `services/tranche_mortgage_pdf_generator.py`
+
+### Коммит
+- `b9b57c5` — fix: tranche mortgage PDF layout - PIL venv fix + contrast filter (v2.7.2)
+
+### ⚠️ При деплое в PROD
+- Установить Pillow в PROD venv: `/opt/bot/venv/bin/pip install Pillow`
