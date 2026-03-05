@@ -506,3 +506,44 @@ grep -rn "/opt/bot-dev" /opt/bot/ --include="*.py" | grep -v __pycache__
 ### Версия
 - DEV: v2.7.2
 - PROD: v2.7.1 (траншевая ипотека не задеплоена)
+
+## ✅ Что сделано 05.03.2026 — Фикс PDF + Деплой в PROD
+
+📅 **Последняя сессия:** 05.03.2026
+🔖 **Версия:** 2.7.2
+
+### Фикс планировки в PDF траншевой ипотеки
+- **Причина бага:** float-based CSS (`.lot-body` с `overflow:hidden`) + `file:///tmp/...` пути в async-контексте
+- **Решение 1:** Заменили float на table-layout (`<table class="lot-body-table">`)
+- **Решение 2:** base64 inline image (`data:image/jpeg;base64,...`) вместо temp файлов — как в `kp_pdf_generator.py`
+- **Файл:** `services/tranche_mortgage_pdf_generator.py`
+- **Коммиты DEV:** `422efc2`, `a5466de`, `61da939`
+
+### Улучшение типографики PDF
+- `.lot-label`: 13px → 16px, font-weight 600
+- `.lot-value`: 13px → 17px, font-weight 700
+- `.lot-value-big`: 15px → 19px, font-weight 700
+- `.lot-row` padding: 6px → 14px
+- "мес" → "мес." (8 вхождений)
+
+### Деплой траншевой ипотеки в PROD
+- Скопированы: `services/tranche_mortgage_calculator.py`, `services/tranche_mortgage_pdf_generator.py`, `handlers/tranche_mortgage.py`, `data/tranche_mortgage_config.json`
+- `app.py` PROD: добавлены callbacks `tmort_pdf_` и `tmort_` (точечно, не копированием)
+- `handlers/kp.py` PROD: добавлена кнопка «🏗 Траншевая ипотека» (строки 243, 749)
+- Pillow установлен в PROD venv
+- **Коммит PROD:** `69a6784`
+
+### Переименование кнопки ипотеки
+- «🏦 Ипотека» → «🏦 Ипотека СОВКОМБАНК 4.4%» в DEV и PROD `handlers/kp.py`
+- **Коммиты:** DEV `1881413`, PROD `69a6784`
+
+### Диагностика Mini App → DEV бота
+- Mini App открывается с `rizalta-miniapp.vercel.app?env=dev`
+- При `?env=dev` запросы идут на `/api-dev/miniapp-action` (Vercel), а не на DEV сервер
+- В итоге «В работу» из Mini App всегда вызывает PROD бота — это ожидаемое поведение
+- Решение: деплоить в PROD, тестировать через PROD бота (@RealtMeAI_bot)
+
+## 📊 Текущее состояние
+- **PROD:** работает ✅ v2.7.2
+- **DEV:** работает ✅ v2.7.2
+- **Траншевая ипотека:** в PROD ✅
