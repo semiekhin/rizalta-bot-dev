@@ -70,16 +70,16 @@ def _scenario_html(calc: Dict[str, Any]) -> str:
             </div>
             <div class="scenario-tranches">
                 <div class="tranche-item">
-                    <div class="tranche-label">1 транш ({tp} мес)</div>
-                    <div class="tranche-ep">{fmt(calc['ep_1'])} ₽/мес</div>
+                    <div class="tranche-label">1 транш ({tp} мес.)</div>
+                    <div class="tranche-ep">{fmt(calc['ep_1'])} ₽/мес.</div>
                 </div>
                 <div class="tranche-item">
-                    <div class="tranche-label">2 транш ({tp} мес)</div>
-                    <div class="tranche-ep">{fmt(calc['ep_2'])} ₽/мес</div>
+                    <div class="tranche-label">2 транш ({tp} мес.)</div>
+                    <div class="tranche-ep">{fmt(calc['ep_2'])} ₽/мес.</div>
                 </div>
                 <div class="tranche-item">
-                    <div class="tranche-label">3 транш ({remaining_months} мес)</div>
-                    <div class="tranche-ep">{fmt(calc['ep_3'])} ₽/мес</div>
+                    <div class="tranche-label">3 транш ({remaining_months} мес.)</div>
+                    <div class="tranche-ep">{fmt(calc['ep_3'])} ₽/мес.</div>
                 </div>
             </div>
         </div>
@@ -139,11 +139,11 @@ body {{ font-family: 'Montserrat', Arial, sans-serif; background: #F6F0E3; color
 .lot-info {{ width: 58%; vertical-align: top; padding-right: 15px; }}
 .lot-layout {{ width: 42%; vertical-align: middle; text-align: center; }}
 .layout-img {{ width: 100%; display: block; max-height: 230px; object-fit: contain; }}
-.lot-row {{ padding: 6px 0; border-bottom: 1px solid rgba(49,61,32,0.12); overflow: hidden; }}
+.lot-row {{ padding: 14px 0; border-bottom: 1px solid rgba(49,61,32,0.12); overflow: hidden; }}
 .lot-row:last-child {{ border-bottom: none; }}
-.lot-label {{ float: left; font-size: 13px; }}
-.lot-value {{ float: right; font-weight: 600; font-size: 13px; }}
-.lot-value-big {{ float: right; font-weight: 600; font-size: 15px; color: #DCB764; }}
+.lot-label {{ float: left; font-size: 16px; font-weight: 600; }}
+.lot-value {{ float: right; font-weight: 700; font-size: 17px; }}
+.lot-value-big {{ float: right; font-weight: 700; font-size: 19px; color: #DCB764; }}
 
 /* Сценарии */
 .scenarios-header {{ background: #313D20; padding: 12px 20px; margin-bottom: 0; }}
