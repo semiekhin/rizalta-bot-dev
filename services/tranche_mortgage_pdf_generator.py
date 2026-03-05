@@ -35,14 +35,17 @@ def get_building_name(building: int) -> str:
 
 
 def download_image_b64(url: str) -> str:
-    """Скачивает изображение, возвращает base64."""
+    """Скачивает изображение во временный файл, возвращает путь file://."""
     if not url:
         return ""
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            data = resp.read()
-        return base64.b64encode(data).decode()
+        import requests
+        resp = requests.get(url, timeout=30)
+        resp.raise_for_status()
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as f:
+            f.write(resp.content)
+            return f.name
     except Exception as e:
         print(f"[TRANCHE PDF] Image download error: {e}")
         return ""
@@ -102,7 +105,7 @@ def generate_html(lot: Dict[str, Any], scenarios: List[Dict[str, Any]]) -> str:
 
     layout_img = ""
     if layout_b64:
-        layout_img = f'<img class="layout-img" src="data:image/jpeg;base64,{layout_b64}">'
+        layout_img = f'<img class="layout-img" src="file://{layout_b64}">'
 
     # Блоки сценариев
     scenarios_html = ""
@@ -134,10 +137,11 @@ body {{ font-family: 'Montserrat', Arial, sans-serif; background: #F6F0E3; color
 .lot-section {{ background: white; margin-bottom: 18px; overflow: hidden; }}
 .lot-header {{ background: #313D20; padding: 12px 20px; }}
 .lot-title {{ font-size: 16px; font-weight: 500; color: #F6F0E3; }}
-.lot-body {{ padding: 15px 20px; overflow: hidden; }}
-.lot-info {{ float: left; width: 55%; }}
-.lot-layout {{ float: right; width: 40%; text-align: center; }}
-.layout-img {{ max-width: 100%; max-height: 220px; filter: contrast(1.8) brightness(0.95); }}
+.lot-body {{ padding: 15px 20px; }}
+.lot-body-table {{ width: 100%; border-collapse: collapse; }}
+.lot-info {{ width: 58%; vertical-align: top; padding-right: 15px; }}
+.lot-layout {{ width: 42%; vertical-align: middle; text-align: center; }}
+.layout-img {{ width: 100%; display: block; max-height: 230px; object-fit: contain; }}
 .lot-row {{ padding: 6px 0; border-bottom: 1px solid rgba(49,61,32,0.12); overflow: hidden; }}
 .lot-row:last-child {{ border-bottom: none; }}
 .lot-label {{ float: left; font-size: 13px; }}
@@ -186,7 +190,8 @@ body {{ font-family: 'Montserrat', Arial, sans-serif; background: #F6F0E3; color
             <div class="lot-title">Лот {lot['code']} &bull; Корпус {lot['building']} &laquo;{building_name}&raquo;</div>
         </div>
         <div class="lot-body">
-            <div class="lot-info">
+            <table class="lot-body-table"><tr>
+            <td class="lot-info">
                 <div class="lot-row">
                     <span class="lot-label">Площадь</span>
                     <span class="lot-value">{lot['area']} м&sup2;</span>
@@ -203,10 +208,10 @@ body {{ font-family: 'Montserrat', Arial, sans-serif; background: #F6F0E3; color
                     <span class="lot-label">Стоимость</span>
                     <span class="lot-value-big">{fmt(lot['price'])} &#8381;</span>
                 </div>
-            </div>
-            <div class="lot-layout">
+            </td>
+            <td class="lot-layout">
                 {layout_img}
-            </div>
+            </td></tr></table>
         </div>
     </div>
 
@@ -267,6 +272,7 @@ def generate_tranche_mortgage_pdf(
             "--margin-left", "0",
             "--margin-right", "0",
             "--enable-local-file-access",
+            "--disable-smart-shrinking",
             html_path,
             pdf_path
         ], check=True, capture_output=True)
