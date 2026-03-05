@@ -35,17 +35,14 @@ def get_building_name(building: int) -> str:
 
 
 def download_image_b64(url: str) -> str:
-    """Скачивает изображение во временный файл, возвращает путь file://."""
+    """Скачивает изображение и возвращает base64-строку."""
     if not url:
         return ""
     try:
-        import requests
+        import requests, base64
         resp = requests.get(url, timeout=30)
         resp.raise_for_status()
-        import tempfile
-        with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as f:
-            f.write(resp.content)
-            return f.name
+        return base64.b64encode(resp.content).decode()
     except Exception as e:
         print(f"[TRANCHE PDF] Image download error: {e}")
         return ""
@@ -105,7 +102,7 @@ def generate_html(lot: Dict[str, Any], scenarios: List[Dict[str, Any]]) -> str:
 
     layout_img = ""
     if layout_b64:
-        layout_img = f'<img class="layout-img" src="file://{layout_b64}">'
+        layout_img = f'<img class="layout-img" src="data:image/jpeg;base64,{layout_b64}">'
 
     # Блоки сценариев
     scenarios_html = ""
