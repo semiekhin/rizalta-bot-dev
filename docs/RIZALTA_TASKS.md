@@ -2,6 +2,18 @@
 
 ## ✅ Выполнено
 
+### 24.03.2026: Cleanup + фиксация сводного КП
+- Закоммичены незакоммиченные изменения kp_pdf_generator.py (download_layout base64, убран А101)
+- Вернута ширина планировки 380px (была 220px для сводного КП)
+- Откат units_db.py: status=available вернён в get_lot_by_code()
+- Версия: 2.7.2
+
+### 19.03.2026: Сводное КП для лотов К3
+- 3 лота (В713, В715, В721) из building=3 — индивидуальные КП + сводная таблица landscape
+- PyPDF2 склейка, Pillow сжатие планировок, wkhtmltopdf
+- Временные лоты удалены после генерации
+- Версия: 2.7.2
+
 ### 01.03.2026: Custom installment fix + status filter + pagination/sort
 - Custom installment: проверка building==1 (К3 лоты не затрагиваются)
 - units_db.py: status='available' добавлен во все 9 SQL-запросов
