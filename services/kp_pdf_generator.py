@@ -130,7 +130,7 @@ body {{ font-family: 'Montserrat', Arial, sans-serif; background: #F6F0E3; color
 .unit-price {{ float: right; font-size: 28px; font-weight: 600; color: #DCB764; }}
 
 .unit-body {{ background: white; padding: 22px 25px; overflow: hidden; }}
-.unit-image {{ float: left; width: 220px; }}
+.unit-image {{ float: left; width: 380px; }}
 .unit-image-full {{ width: 100%; margin-bottom: 25px; text-align: center; }}
 .unit-image-full img {{ max-width: 500px; max-height: 450px; }}
 .unit-details-full {{ margin-left: 0; font-size: 17px; }}
@@ -141,7 +141,7 @@ body {{ font-family: 'Montserrat', Arial, sans-serif; background: #F6F0E3; color
 .unit-details {{ margin-left: 410px; }}
 
 .fp-layout {{ overflow: hidden; margin-bottom: 20px; }}
-.fp-image {{ float: left; width: 220px; }}
+.fp-image {{ float: left; width: 380px; }}
 .fp-image img {{ width: 100%; display: block; }}
 .fp-benefit {{ margin-left: 405px; margin-top: 20px; background: #F6F0E3; border-radius: 12px; padding: 30px; min-height: 320px; padding-top: 50px; }}
 .fp-benefit-title {{ font-size: 13px; font-weight: 600; color: #313D20; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 20px; }}
