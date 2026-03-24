@@ -17,7 +17,7 @@ RESOURCES_DIR = BASE_DIR / "services" / "kp_resources"
 SERVICE_FEE = 150_000
 
 # Апартаменты с индивидуальными условиями рассрочки (только 50% ПВ, 12 мес)
-CUSTOM_INSTALLMENT_UNITS = ['В217', 'В225', 'В317', 'В327', 'В417', 'В517', 'В525', 'В527', 'В615', 'В617', 'В625', 'А101']
+CUSTOM_INSTALLMENT_UNITS = ['В217', 'В225', 'В317', 'В327', 'В417', 'В517', 'В525', 'В527', 'В615', 'В617', 'В625']
 
 def load_resource(filename: str) -> str:
     path = RESOURCES_DIR / filename
@@ -50,6 +50,8 @@ def get_lot_from_db(area: float = 0, code: str = "", building: int = None) -> Op
 def download_layout(url: str) -> str:
     if not url:
         return ""
+    if url.startswith('data:image'):
+        return url.split(',', 1)[1] if ',' in url else ""
     try:
         resp = requests.get(url, timeout=30)
         resp.raise_for_status()
@@ -128,7 +130,7 @@ body {{ font-family: 'Montserrat', Arial, sans-serif; background: #F6F0E3; color
 .unit-price {{ float: right; font-size: 28px; font-weight: 600; color: #DCB764; }}
 
 .unit-body {{ background: white; padding: 22px 25px; overflow: hidden; }}
-.unit-image {{ float: left; width: 380px; }}
+.unit-image {{ float: left; width: 220px; }}
 .unit-image-full {{ width: 100%; margin-bottom: 25px; text-align: center; }}
 .unit-image-full img {{ max-width: 500px; max-height: 450px; }}
 .unit-details-full {{ margin-left: 0; font-size: 17px; }}
@@ -139,7 +141,7 @@ body {{ font-family: 'Montserrat', Arial, sans-serif; background: #F6F0E3; color
 .unit-details {{ margin-left: 410px; }}
 
 .fp-layout {{ overflow: hidden; margin-bottom: 20px; }}
-.fp-image {{ float: left; width: 380px; }}
+.fp-image {{ float: left; width: 220px; }}
 .fp-image img {{ width: 100%; display: block; }}
 .fp-benefit {{ margin-left: 405px; margin-top: 20px; background: #F6F0E3; border-radius: 12px; padding: 30px; min-height: 320px; padding-top: 50px; }}
 .fp-benefit-title {{ font-size: 13px; font-weight: 600; color: #313D20; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 20px; }}
