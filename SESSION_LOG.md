@@ -7,8 +7,9 @@
 - **Деплой в PROD:** коммит `bc6666f`, бонусом уехал давно ждавший фикс `data:image` в `kp_pdf_generator.py`
 - **Подключение:** Claude Code теперь работает на сервере через `root` (не `claude-dev`)
 - **Контекст:** создана система CLAUDE.md + SESSION_LOG.md + BACKLOG.md по стандарту Sofia
+- **mortgage_config.json:** закоммичен висевший с 31.03 hotfix — `markup_pct` обнулён для всех ПВ (30/40/50: 6/9/12 → 0/0/0), удорожания больше нет
 
-**Файлы:** services/kp_pdf_generator.py, handlers/corp3.py, data/rizalta_finance.json, services/ai_chat.py, CLAUDE.md, SESSION_LOG.md, BACKLOG.md
+**Файлы:** services/kp_pdf_generator.py, handlers/corp3.py, data/rizalta_finance.json, services/ai_chat.py, data/mortgage_config.json, CLAUDE.md, SESSION_LOG.md, BACKLOG.md
 
 **Найденный баг (не пофикшен):** `services/calc_universal.py:137` — `CUSTOM_INSTALLMENT_UNITS` без проверки `building==1`, перенесён в BACKLOG P1
 
