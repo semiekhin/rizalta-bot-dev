@@ -1,5 +1,21 @@
 # SESSION_LOG — Последние сессии
 
+## 12.04.2026 — Срок сдачи К3: 2 кв. 2028 + деплой в PROD
+
+**Сделано:**
+- **Срок сдачи К3 = 2 кв. 2028:** условие по building в `kp_pdf_generator.py`, обновлён `corp3.py`, `rizalta_finance.json` (поле `completion_by_building`), `ai_chat.py` с группировкой корпусов
+- **Деплой в PROD:** коммит `bc6666f`, бонусом уехал давно ждавший фикс `data:image` в `kp_pdf_generator.py`
+- **Подключение:** Claude Code теперь работает на сервере через `root` (не `claude-dev`)
+- **Контекст:** создана система CLAUDE.md + SESSION_LOG.md + BACKLOG.md по стандарту Sofia
+
+**Файлы:** services/kp_pdf_generator.py, handlers/corp3.py, data/rizalta_finance.json, services/ai_chat.py, CLAUDE.md, SESSION_LOG.md, BACKLOG.md
+
+**Найденный баг (не пофикшен):** `services/calc_universal.py:137` — `CUSTOM_INSTALLMENT_UNITS` без проверки `building==1`, перенесён в BACKLOG P1
+
+**Версия:** 2.7.2
+
+---
+
 ## 30.03.2026 — Система управления контекстом + исследование Custom Installment
 
 **Сделано:**
@@ -26,20 +42,6 @@
 - Claude Code подключён к проекту (CLAUDE.md создан)
 
 **Файлы:** services/kp_pdf_generator.py, services/units_db.py
-
-**Версия:** 2.7.2
-
----
-
-## 19.03.2026 — Сводное КП для 3 лотов К3
-
-**Сделано:**
-- Сводное КП: 3 лота (В713, В715, В721) из building=3
-- Индивидуальные КП + сводная таблица landscape
-- PyPDF2 склейка, Pillow сжатие планировок, wkhtmltopdf
-- Временные лоты удалены после генерации
-
-**Файлы:** services/kp_pdf_generator.py
 
 **Версия:** 2.7.2
 
