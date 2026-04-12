@@ -209,7 +209,7 @@ body {{ font-family: 'Montserrat', Arial, sans-serif; background: #F6F0E3; color
 <tr><td class="detail-label">Этаж</td><td class="detail-value">{lot["floor"]}</td></tr>
 <tr><td class="detail-label">Площадь</td><td class="detail-value">{lot["area"]} м²</td></tr>
 <tr><td class="detail-label">Комнат</td><td class="detail-value">{ltype}</td></tr>
-<tr><td class="detail-label">Сдача</td><td class="detail-value">4 кв. 2027</td></tr>
+<tr><td class="detail-label">Сдача</td><td class="detail-value">{"2 кв. 2028" if lot.get("building") == 3 else "4 кв. 2027"}</td></tr>
 <tr><td class="detail-label">Цена за м²</td><td class="detail-value">{fmt(ppm2)}</td></tr>
 </table>
 {'' if full_payment else '''<div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee;">
