@@ -181,22 +181,16 @@ def create_booking(
         ]
         req_preview = [(k, v[1] if v[0] is None else f"<file name={v[0]!r} len={len(v[1])}>") for k, v in multipart]
 
-        session = requests.Session()
-        session.headers.update(_RCLICK_BROWSER_HEADERS)
-        session.cookies.set("rClick_token", token, domain="ri.rclick.ru")
-
-        # Preliminary GET — чтобы PHP выдал PHPSESSID cookie
-        get_resp = session.get(RCLICK_NOTICE_URL, timeout=30)
-        print(f"[RCLICK-GET] url={RCLICK_NOTICE_URL} status={get_resp.status_code} cookies_after={sorted(session.cookies.keys())}")
-
         print(
             f"[RCLICK-REQ] url={RCLICK_BOOKING_URL} method=POST "
-            f"cookies={sorted(session.cookies.keys())} "
+            f"cookies=['rClick_token'] "
             f"headers_added={sorted(_RCLICK_BROWSER_HEADERS.keys())} "
             f"multipart={req_preview!r}"
         )
-        response = session.post(
+        response = requests.post(
             RCLICK_BOOKING_URL,
+            cookies={"rClick_token": token},
+            headers=_RCLICK_BROWSER_HEADERS,
             files=multipart,
             timeout=30
         )
