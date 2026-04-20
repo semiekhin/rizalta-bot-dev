@@ -204,6 +204,30 @@ def delete_token(telegram_id: int):
     conn.close()
 
 
+def save_auth_after_login(
+    telegram_id: int,
+    phone: str,
+    password: str,
+    login_result: Dict[str, Any],
+) -> None:
+    """Сохраняет auth-стейт после успешного login_rclick().
+
+    Шифрует пароль (Fernet) и кладёт вместе с token + phpsessid в БД.
+    Handler не должен знать про шифрование — вызывает эту функцию с plaintext.
+    Если RCLICK_ENCRYPTION_KEY не настроен, encrypted_password останется NULL,
+    авто-релогин работать не будет (но login один раз — пройдёт).
+    """
+    save_token(
+        telegram_id,
+        phone,
+        login_result["token"],
+        login_result.get("agent_name", ""),
+        encrypted_password=_encrypt_password(password),
+        phpsessid=login_result["phpsessid"],
+        session_refreshed_at=datetime.now().isoformat(),
+    )
+
+
 def login_rclick(phone: str, password: str) -> Dict[str, Any]:
     """
     Авторизация на ri.rclick.ru через requests.Session с браузерными заголовками.
