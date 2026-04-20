@@ -145,22 +145,51 @@ def get_token(telegram_id: int) -> Optional[str]:
     return token
 
 
-def save_token(telegram_id: int, phone: str, token: str, agent_name: str = ""):
-    """Сохраняет токен риэлтора."""
+def _get_auth_row(telegram_id: int) -> Optional[Dict[str, Any]]:
+    """Читает всю auth-строку юзера. Возвращает None если записи нет или токен протух (90-д)."""
+    init_db()
+    conn = sqlite3.connect(str(DB_PATH))
+    conn.row_factory = sqlite3.Row
+    row = conn.execute(
+        "SELECT telegram_id, phone, token, expires_at, "
+        "encrypted_password, phpsessid, session_refreshed_at "
+        "FROM rclick_tokens WHERE telegram_id=?", (telegram_id,)
+    ).fetchone()
+    conn.close()
+    if not row:
+        return None
+    if datetime.fromisoformat(row["expires_at"]) < datetime.now():
+        delete_token(telegram_id)
+        return None
+    return dict(row)
+
+
+def save_token(
+    telegram_id: int,
+    phone: str,
+    token: str,
+    agent_name: str = "",
+    encrypted_password: Optional[str] = None,
+    phpsessid: Optional[str] = None,
+    session_refreshed_at: Optional[str] = None,
+):
+    """Сохраняет токен риэлтора. Новые поля опциональны — при None остаются/становятся NULL."""
     init_db()
     conn = sqlite3.connect(str(DB_PATH))
     cursor = conn.cursor()
-    
+
     # Токен действует ~100 дней
     expires_at = (datetime.now() + timedelta(days=90)).isoformat()
     created_at = datetime.now().isoformat()
-    
+
     cursor.execute("""
-        INSERT OR REPLACE INTO rclick_tokens 
-        (telegram_id, phone, token, agent_name, expires_at, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-    """, (telegram_id, phone, token, agent_name, expires_at, created_at))
-    
+        INSERT OR REPLACE INTO rclick_tokens
+        (telegram_id, phone, token, agent_name, expires_at, created_at,
+         encrypted_password, phpsessid, session_refreshed_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (telegram_id, phone, token, agent_name, expires_at, created_at,
+          encrypted_password, phpsessid, session_refreshed_at))
+
     conn.commit()
     conn.close()
 
@@ -177,41 +206,39 @@ def delete_token(telegram_id: int):
 
 def login_rclick(phone: str, password: str) -> Dict[str, Any]:
     """
-    Авторизация на ri.rclick.ru
-    
+    Авторизация на ri.rclick.ru через requests.Session с браузерными заголовками.
+
     Returns:
-        {"success": True, "token": "...", "agent_name": "..."} или
-        {"success": False, "error": "..."}
+        {"success": True, "token": "...", "phpsessid": "...", "agent_name": ""}
+      или {"success": False, "error": "..."}
+
+    ВАЖНО: RCLICK выдаёт ДВЕ куки (rClick_token + PHPSESSID), обе обязательны для
+    последующих вызовов /notice/newbooking/. Если какой-то нет — считаем login'ом неудачным.
     """
     try:
-        response = requests.post(
+        session = requests.Session()
+        session.headers.update(_RCLICK_BROWSER_HEADERS)
+        response = session.post(
             RCLICK_LOGIN_URL,
             data={"phone": phone, "password": password},
             timeout=30,
-            allow_redirects=False
+            allow_redirects=False,
         )
-        
-        # Токен приходит в Set-Cookie
-        cookies = response.cookies
-        token = cookies.get("rClick_token")
-        
-        if token:
+        token = session.cookies.get("rClick_token")
+        phpsessid = session.cookies.get("PHPSESSID")
+        if token and phpsessid:
             return {
                 "success": True,
                 "token": token,
-                "agent_name": ""  # Можно парсить из ответа если нужно
+                "phpsessid": phpsessid,
+                "agent_name": "",
             }
-        else:
-            return {
-                "success": False,
-                "error": "Неверный телефон или пароль"
-            }
-            
+        print(f"[RCLICK-LOGIN] failed: status={response.status_code} "
+              f"has_token={bool(token)} has_phpsessid={bool(phpsessid)} "
+              f"body={response.text[:200]!r}")
+        return {"success": False, "error": "Неверный телефон или пароль"}
     except requests.RequestException as e:
-        return {
-            "success": False,
-            "error": f"Ошибка подключения: {str(e)}"
-        }
+        return {"success": False, "error": f"Ошибка подключения: {str(e)}"}
 
 
 def _format_phone_for_rclick(phone: str) -> str:
@@ -222,92 +249,210 @@ def _format_phone_for_rclick(phone: str) -> str:
     return phone
 
 
+# ─── Low-level booking primitives ─────────────────────────────────────────────
+
+def _do_rclick_booking(token, phpsessid, client_name, client_phone, message, manager_id):
+    """Отправляет один POST /notice/newbooking/ с заданными cookies.
+
+    Returns (response, parsed_json_or_None). JSON=None если тело не парсится.
+    Может выбросить requests.RequestException — обрабатывает вызывающий.
+    """
+    client_phone_fmt = _format_phone_for_rclick(client_phone)
+    multipart = [
+        ("agentLastName",  (None, "")),
+        ("agentFirstName", (None, "")),
+        ("agentPhone",     (None, "")),
+        ("project",        (None, PROJECT_ID)),
+        ("clientName",     (None, client_name)),
+        ("clientPhone",    (None, client_phone_fmt)),
+        ("manager",        (None, str(manager_id))),
+        ("message",        (None, message)),
+        ("pasImage[]",     ("", b"", "application/octet-stream")),
+        ("policy",         (None, "on")),
+    ]
+    cookies = {"rClick_token": token}
+    if phpsessid:
+        cookies["PHPSESSID"] = phpsessid
+    req_preview = [(k, v[1] if v[0] is None else f"<file name={v[0]!r} len={len(v[1])}>") for k, v in multipart]
+    print(
+        f"[RCLICK-REQ] url={RCLICK_BOOKING_URL} method=POST "
+        f"cookies={sorted(cookies.keys())} "
+        f"headers_added={sorted(_RCLICK_BROWSER_HEADERS.keys())} "
+        f"multipart={req_preview!r}"
+    )
+    response = requests.post(
+        RCLICK_BOOKING_URL,
+        cookies=cookies,
+        headers=_RCLICK_BROWSER_HEADERS,
+        files=multipart,
+        timeout=30,
+    )
+    print(f"[RCLICK] status={response.status_code} len={len(response.content)} "
+          f"ct={response.headers.get('content-type')} body={response.text[:500]!r}")
+    try:
+        return response, response.json()
+    except ValueError:
+        return response, None
+
+
+def _is_dead_session(response) -> bool:
+    """RCLICK сигнализирует о мёртвой PHP-сессии как HTTP 500 с пустым телом."""
+    return response.status_code >= 500 and len(response.content) == 0
+
+
+def _interpret_booking_result(data) -> Dict[str, Any]:
+    """Преобразует JSON-ответ RCLICK в стандартизированный словарь для UI."""
+    if data is None:
+        return {"success": False, "error": "Некорректный ответ от сервера"}
+    if data.get("success") == 1 and data.get("status") == 1:
+        return {
+            "success": True,
+            "message": "Клиент зафиксирован! Номер отправлен в CRM застройщика.",
+        }
+    if data.get("success") == 1 and data.get("status") == 0:
+        view = data.get("view", "")
+        if "Телефон клиента не может совпадать" in view:
+            return {"success": False, "error": "Телефон клиента совпадает с вашим номером"}
+        if "уже зафиксирован" in view.lower():
+            return {"success": False, "error": "Этот клиент уже зафиксирован"}
+        return {"success": False, "error": "Ошибка при фиксации. Проверьте данные."}
+    return {"success": False, "error": "Неизвестная ошибка от сервера"}
+
+
+# Rate-limit для авто-релогина. Не чаще 1 раза в 30 сек на telegram_id.
+_RELOGIN_COOLDOWN_SECONDS = 30
+_last_relogin_attempt: Dict[int, float] = {}
+
+
+def _attempt_relogin(telegram_id: int) -> Dict[str, Any]:
+    """Пробует перелогинить юзера используя сохранённый зашифрованный пароль.
+
+    Returns:
+        {"success": True, "token":..., "phpsessid":...}
+      или {"success": False, "error":..., "reauth_required": bool}
+    """
+    now = datetime.now().timestamp()
+    last = _last_relogin_attempt.get(telegram_id, 0)
+    if now - last < _RELOGIN_COOLDOWN_SECONDS:
+        return {
+            "success": False,
+            "error": "Сервис временно недоступен, попробуйте через минуту",
+            "reauth_required": False,
+        }
+    _last_relogin_attempt[telegram_id] = now
+
+    row = _get_auth_row(telegram_id)
+    if not row:
+        return {"success": False, "error": "Не авторизованы в RCLICK", "reauth_required": True}
+    password = _decrypt_password(row.get("encrypted_password"))
+    if not password:
+        # Старая запись без пароля / ключ потерян / шифротекст повреждён — чистим и просим авторизацию
+        delete_token(telegram_id)
+        return {
+            "success": False,
+            "error": "Сессия истекла, пожалуйста авторизуйтесь заново",
+            "reauth_required": True,
+        }
+    print(f"[RCLICK-RELOGIN] telegram_id={telegram_id} phone={row['phone']}")
+    result = login_rclick(row["phone"], password)
+    if not result["success"]:
+        return {
+            "success": False,
+            "error": "Не удалось возобновить сессию. Возможно, сменился пароль в ri.rclick.ru — авторизуйтесь заново",
+            "reauth_required": True,
+        }
+    save_token(
+        telegram_id, row["phone"], result["token"], result.get("agent_name", ""),
+        encrypted_password=row["encrypted_password"],
+        phpsessid=result["phpsessid"],
+        session_refreshed_at=datetime.now().isoformat(),
+    )
+    return {"success": True, "token": result["token"], "phpsessid": result["phpsessid"]}
+
+
 def create_booking(
     token: str,
     client_name: str,
     client_phone: str,
     message: str = "",
-    manager_id: int = 2
+    manager_id: int = 2,
 ) -> Dict[str, Any]:
-    """
-    Создаёт фиксацию клиента на ri.rclick.ru
-    
+    """LOW-LEVEL: одна попытка фиксации по rClick_token, без авто-релогина.
+
+    Используется внутренне и для обратной совместимости (внешние вызовы).
+    UI-код должен предпочитать create_booking_for_user() — с релогином.
+
     Returns:
         {"success": True, "message": "..."} или
         {"success": False, "error": "..."}
     """
     try:
-        client_phone_fmt = _format_phone_for_rclick(client_phone)
-        multipart = [
-            ("agentLastName",  (None, "")),
-            ("agentFirstName", (None, "")),
-            ("agentPhone",     (None, "")),
-            ("project",        (None, PROJECT_ID)),
-            ("clientName",     (None, client_name)),
-            ("clientPhone",    (None, client_phone_fmt)),
-            ("manager",        (None, str(manager_id))),
-            ("message",        (None, message)),
-            ("pasImage[]",     ("", b"", "application/octet-stream")),
-            ("policy",         (None, "on")),
-        ]
-        req_preview = [(k, v[1] if v[0] is None else f"<file name={v[0]!r} len={len(v[1])}>") for k, v in multipart]
-
-        print(
-            f"[RCLICK-REQ] url={RCLICK_BOOKING_URL} method=POST "
-            f"cookies=['rClick_token'] "
-            f"headers_added={sorted(_RCLICK_BROWSER_HEADERS.keys())} "
-            f"multipart={req_preview!r}"
+        response, data = _do_rclick_booking(
+            token, None, client_name, client_phone, message, manager_id
         )
-        response = requests.post(
-            RCLICK_BOOKING_URL,
-            cookies={"rClick_token": token},
-            headers=_RCLICK_BROWSER_HEADERS,
-            files=multipart,
-            timeout=30
-        )
-
-        print(f"[RCLICK] status={response.status_code} len={len(response.content)} ct={response.headers.get('content-type')} body={response.text[:500]!r}")
-        data = response.json()
-        
-        if data.get("success") == 1 and data.get("status") == 1:
-            return {
-                "success": True,
-                "message": "Клиент зафиксирован! Номер отправлен в CRM застройщика."
-            }
-        elif data.get("success") == 1 and data.get("status") == 0:
-            # Парсим сообщение об ошибке из HTML
-            view = data.get("view", "")
-            if "Телефон клиента не может совпадать" in view:
-                return {
-                    "success": False,
-                    "error": "Телефон клиента совпадает с вашим номером"
-                }
-            elif "уже зафиксирован" in view.lower():
-                return {
-                    "success": False,
-                    "error": "Этот клиент уже зафиксирован"
-                }
-            else:
-                return {
-                    "success": False,
-                    "error": "Ошибка при фиксации. Проверьте данные."
-                }
-        else:
-            return {
-                "success": False,
-                "error": "Неизвестная ошибка от сервера"
-            }
-            
     except requests.RequestException as e:
+        return {"success": False, "error": f"Ошибка подключения: {str(e)}"}
+    return _interpret_booking_result(data)
+
+
+def create_booking_for_user(
+    telegram_id: int,
+    client_name: str,
+    client_phone: str,
+    message: str = "",
+    manager_id: int = 2,
+) -> Dict[str, Any]:
+    """HIGH-LEVEL: фиксация с авто-релогином при мёртвой PHP-сессии.
+
+    Алгоритм:
+      1. Читаем auth-строку юзера из БД (token + phpsessid + encrypted_password)
+      2. Первая попытка POST /notice/newbooking/ с обеими cookies
+      3. Если сервер вернул 500+пусто → детектор мёртвой сессии
+         → _attempt_relogin() с rate-limit 30 сек
+         → повтор booking (максимум 1 раз)
+      4. Если повтор тоже 500+пусто → считаем глобальным сбоем RCLICK
+
+    Returns:
+        {"success": True, "message": "..."} при успехе
+      или {"success": False, "error": "...", "reauth_required": bool} при ошибке.
+    """
+    row = _get_auth_row(telegram_id)
+    if not row:
+        return {"success": False, "error": "Не авторизованы в RCLICK", "reauth_required": True}
+
+    try:
+        response, data = _do_rclick_booking(
+            row["token"], row.get("phpsessid"),
+            client_name, client_phone, message, manager_id,
+        )
+    except requests.RequestException as e:
+        return {"success": False, "error": f"Ошибка подключения: {str(e)}"}
+
+    if not _is_dead_session(response):
+        return _interpret_booking_result(data)
+
+    # Детектор мёртвой сессии сработал — авто-релогин
+    print(f"[RCLICK-DEAD-SESSION] telegram_id={telegram_id} — auto-relogin")
+    relogin = _attempt_relogin(telegram_id)
+    if not relogin["success"]:
+        return relogin  # содержит error + reauth_required
+
+    try:
+        response2, data2 = _do_rclick_booking(
+            relogin["token"], relogin["phpsessid"],
+            client_name, client_phone, message, manager_id,
+        )
+    except requests.RequestException as e:
+        return {"success": False, "error": f"Ошибка подключения: {str(e)}"}
+
+    if _is_dead_session(response2):
+        # Даже со свежей сессией 500+пусто → глобальный сбой RCLICK
         return {
             "success": False,
-            "error": f"Ошибка подключения: {str(e)}"
+            "error": "CRM временно недоступен, попробуйте через несколько минут",
+            "reauth_required": False,
         }
-    except ValueError:
-        return {
-            "success": False,
-            "error": "Некорректный ответ от сервера"
-        }
+    return _interpret_booking_result(data2)
 
 
 def is_authorized(telegram_id: int) -> bool:
