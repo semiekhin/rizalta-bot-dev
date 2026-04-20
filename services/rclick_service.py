@@ -145,17 +145,19 @@ def create_booking(
         {"success": False, "error": "..."}
     """
     try:
+        payload = {
+            "project": PROJECT_ID,
+            "clientName": client_name,
+            "clientPhone": client_phone,
+            "manager": str(manager_id),
+            "message": message,
+            "policy": "on"
+        }
+        print(f"[RCLICK-REQ] url={RCLICK_BOOKING_URL} method=POST cookies={{'rClick_token': '{token[:8]}...({len(token)} chars)'}} data={payload!r}")
         response = requests.post(
             RCLICK_BOOKING_URL,
             cookies={"rClick_token": token},
-            data={
-                "project": PROJECT_ID,
-                "clientName": client_name,
-                "clientPhone": client_phone,
-                "manager": str(manager_id),
-                "message": message,
-                "policy": "on"
-            },
+            data=payload,
             timeout=30
         )
 
