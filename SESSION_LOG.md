@@ -1,5 +1,33 @@
 # SESSION_LOG — Последние сессии
 
+## 20.04.2026 — Фикс фиксации через RCLICK + авто-релогин с зашифрованным паролем (деплой в PROD)
+
+**Проблема:** с ~17:12 MSK все фиксации через ri.rclick.ru падали с криптичным "Ошибка подключения: Expecting value: line 1 column 1 (char 0)". RCLICK начал возвращать HTTP 500 с пустым телом на `POST /notice/newbooking/`.
+
+**Диагностика (через поэтапное добавление логов в DEV):**
+- RCLICK /notice/newbooking/ требует `multipart/form-data` (не url-encoded), браузерные заголовки (User-Agent/Origin/Referer), и ВАЛИДНУЮ PHP-сессию на их бэке привязанную к agent через PHPSESSID
+- Login отдаёт ДВЕ куки: `rClick_token` + `PHPSESSID`, обе нужны. Старый код сохранял только `rClick_token`
+- Успех curl'а с браузерными куками vs 500 с токеном-only из БД подтвердил гипотезу
+
+**Решение (3 стейджа, stage 3 коммитов):**
+- `fcd1b92` stage 1 — миграция БД (ALTER TABLE: `encrypted_password`, `phpsessid`, `session_refreshed_at`) + Fernet helpers
+- `c69f487` stage 2 — `login_rclick()` через `requests.Session`, `_do_rclick_booking()`, `_is_dead_session()`, `_attempt_relogin()` с rate-limit 30 сек, `create_booking_for_user(telegram_id, ...)` с детектором + 1 повтором
+- `95aa1fb` stage 3 — handler переведён на `create_booking_for_user` + `save_auth_after_login` (handler не знает про Fernet), новая кнопка «🔑 Авторизоваться заново» при `reauth_required=True`
+
+**Деплой в PROD (23:04 MSK):**
+- Бэкап в `/root/rizalta-prod-backup-20260420-230141/`
+- `cryptography==41.0.7` в /opt/bot/venv
+- Сгенерирован и добавлен в `/opt/bot/.env` отдельный `RCLICK_ENCRYPTION_KEY` (44 chars, бэкап в менеджере паролей у человека)
+- Миграция БД: 40 записей целы, новые поля NULL — каждый риэлтор один раз получит «Сессия истекла, авторизуйтесь заново» → после этого работает прозрачно с авто-релогином
+
+**Тесты в DEV (прошли):** новый юзер (#3), авто-релогин при мёртвом токене (#4), обратная совместимость с NULL encrypted_password (#5), повреждённый шифротекст (#6), rate-limit (unit-test в stage 2)
+
+**Файлы:** services/rclick_service.py, handlers/booking_fixation.py, .env.example (+ .env с ключом)
+
+**Версия:** 2.7.2
+
+---
+
 ## 12.04.2026 — Срок сдачи К3: 2 кв. 2028 + деплой в PROD
 
 **Сделано:**
