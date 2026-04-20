@@ -4,11 +4,14 @@
 - Фиксация клиентов
 """
 
+import os
 import sqlite3
 import requests
 from pathlib import Path
 from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
+
+from cryptography.fernet import Fernet, InvalidToken
 
 BASE_DIR = Path(__file__).parent.parent
 DB_PATH = BASE_DIR / "rclick_tokens.db"
@@ -31,9 +34,18 @@ _RCLICK_BROWSER_HEADERS = {
     "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
 }
 
+# PHP-сессия на бэке RCLICK живёт ~30 мин. Чуть консервативнее — треатим как истёкшую через 25 мин.
+SESSION_TTL_SECONDS = 25 * 60
+
 
 def init_db():
-    """Создаёт таблицу токенов если не существует."""
+    """Создаёт таблицу токенов если не существует и мигрирует на новую схему.
+
+    Добавляемые поля (NULL для старых записей):
+      - encrypted_password: Fernet-зашифрованный пароль от ri.rclick.ru
+      - phpsessid: PHP-сессия, привязанная к последнему успешному login
+      - session_refreshed_at: когда получили текущую PHPSESSID
+    """
     conn = sqlite3.connect(str(DB_PATH))
     cursor = conn.cursor()
     cursor.execute("""
@@ -46,8 +58,67 @@ def init_db():
             created_at TEXT NOT NULL
         )
     """)
+    # Миграция: добавляем колонки если их ещё нет. ALTER TABLE ADD COLUMN идемпотентна только через try/except —
+    # SQLite не поддерживает ADD COLUMN IF NOT EXISTS до версии 3.35+ на всех платформах, и проще ловить ошибку.
+    for col, ddl in (
+        ("encrypted_password", "TEXT"),
+        ("phpsessid",          "TEXT"),
+        ("session_refreshed_at", "TEXT"),
+    ):
+        try:
+            cursor.execute(f"ALTER TABLE rclick_tokens ADD COLUMN {col} {ddl}")
+        except sqlite3.OperationalError as e:
+            if "duplicate column" not in str(e).lower():
+                raise
     conn.commit()
     conn.close()
+
+
+# ─── Encryption helpers ───────────────────────────────────────────────────────
+
+_fernet_instance: Optional[Fernet] = None
+
+
+def _get_fernet() -> Optional[Fernet]:
+    """Возвращает Fernet instance из .env ключа; None если ключ не настроен."""
+    global _fernet_instance
+    if _fernet_instance is not None:
+        return _fernet_instance
+    key = os.getenv("RCLICK_ENCRYPTION_KEY")
+    if not key:
+        return None
+    try:
+        _fernet_instance = Fernet(key.encode())
+        return _fernet_instance
+    except (ValueError, TypeError) as e:
+        print(f"[RCLICK] RCLICK_ENCRYPTION_KEY is malformed: {e}")
+        return None
+
+
+def _encrypt_password(password: str) -> Optional[str]:
+    """Шифрует пароль через Fernet; возвращает str (base64) или None если ключ не настроен."""
+    f = _get_fernet()
+    if f is None:
+        return None
+    return f.encrypt(password.encode("utf-8")).decode("utf-8")
+
+
+def _decrypt_password(encrypted: Optional[str]) -> Optional[str]:
+    """Расшифровывает пароль. Возвращает None если:
+       - encrypted is None (старая запись без сохранённого пароля)
+       - ключ не настроен
+       - ключ сменился или шифротекст повреждён (InvalidToken)
+    """
+    if not encrypted:
+        return None
+    f = _get_fernet()
+    if f is None:
+        return None
+    try:
+        return f.decrypt(encrypted.encode("utf-8")).decode("utf-8")
+    except InvalidToken:
+        print(f"[RCLICK] Password decryption failed — key mismatch or corrupted data")
+        return None
 
 
 def get_token(telegram_id: int) -> Optional[str]:
