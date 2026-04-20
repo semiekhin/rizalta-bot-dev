@@ -130,6 +130,14 @@ def login_rclick(phone: str, password: str) -> Dict[str, Any]:
         }
 
 
+def _format_phone_for_rclick(phone: str) -> str:
+    """Преобразует 11-значный номер в формат '8 (XXX) XXX-XX-XX' для RCLICK API."""
+    digits = "".join(c for c in phone if c.isdigit())
+    if len(digits) == 11 and digits[0] in ("7", "8"):
+        return f"8 ({digits[1:4]}) {digits[4:7]}-{digits[7:9]}-{digits[9:11]}"
+    return phone
+
+
 def create_booking(
     token: str,
     client_name: str,
@@ -145,19 +153,25 @@ def create_booking(
         {"success": False, "error": "..."}
     """
     try:
-        payload = {
-            "project": PROJECT_ID,
-            "clientName": client_name,
-            "clientPhone": client_phone,
-            "manager": str(manager_id),
-            "message": message,
-            "policy": "on"
-        }
-        print(f"[RCLICK-REQ] url={RCLICK_BOOKING_URL} method=POST cookies={{'rClick_token': '{token[:8]}...({len(token)} chars)'}} data={payload!r}")
+        client_phone_fmt = _format_phone_for_rclick(client_phone)
+        multipart = [
+            ("agentLastName",  (None, "")),
+            ("agentFirstName", (None, "")),
+            ("agentPhone",     (None, "")),
+            ("project",        (None, PROJECT_ID)),
+            ("clientName",     (None, client_name)),
+            ("clientPhone",    (None, client_phone_fmt)),
+            ("manager",        (None, str(manager_id))),
+            ("message",        (None, message)),
+            ("pasImage[]",     ("", b"", "application/octet-stream")),
+            ("policy",         (None, "on")),
+        ]
+        req_preview = [(k, v[1] if v[0] is None else f"<file name={v[0]!r} len={len(v[1])}>") for k, v in multipart]
+        print(f"[RCLICK-REQ] url={RCLICK_BOOKING_URL} method=POST cookies={{'rClick_token': '{token[:8]}...({len(token)} chars)'}} multipart={req_preview!r}")
         response = requests.post(
             RCLICK_BOOKING_URL,
             cookies={"rClick_token": token},
-            data=payload,
+            files=multipart,
             timeout=30
         )
 
