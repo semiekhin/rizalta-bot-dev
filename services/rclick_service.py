@@ -16,7 +16,20 @@ DB_PATH = BASE_DIR / "rclick_tokens.db"
 # API endpoints
 RCLICK_LOGIN_URL = "https://ri.rclick.ru/auth/login/"
 RCLICK_BOOKING_URL = "https://ri.rclick.ru/notice/newbooking/"
+RCLICK_NOTICE_URL = "https://ri.rclick.ru/notice/"
 PROJECT_ID = "340"  # ID проекта RIZALTA
+
+# Заголовки как у живого браузера (RCLICK /notice/newbooking/ проверяет Origin/Referer/UA)
+_RCLICK_BROWSER_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+    ),
+    "Origin": "https://ri.rclick.ru",
+    "Referer": RCLICK_NOTICE_URL,
+    "Accept": "*/*",
+    "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
+}
 
 
 def init_db():
@@ -167,10 +180,23 @@ def create_booking(
             ("policy",         (None, "on")),
         ]
         req_preview = [(k, v[1] if v[0] is None else f"<file name={v[0]!r} len={len(v[1])}>") for k, v in multipart]
-        print(f"[RCLICK-REQ] url={RCLICK_BOOKING_URL} method=POST cookies={{'rClick_token': '{token[:8]}...({len(token)} chars)'}} multipart={req_preview!r}")
-        response = requests.post(
+
+        session = requests.Session()
+        session.headers.update(_RCLICK_BROWSER_HEADERS)
+        session.cookies.set("rClick_token", token, domain="ri.rclick.ru")
+
+        # Preliminary GET — чтобы PHP выдал PHPSESSID cookie
+        get_resp = session.get(RCLICK_NOTICE_URL, timeout=30)
+        print(f"[RCLICK-GET] url={RCLICK_NOTICE_URL} status={get_resp.status_code} cookies_after={sorted(session.cookies.keys())}")
+
+        print(
+            f"[RCLICK-REQ] url={RCLICK_BOOKING_URL} method=POST "
+            f"cookies={sorted(session.cookies.keys())} "
+            f"headers_added={sorted(_RCLICK_BROWSER_HEADERS.keys())} "
+            f"multipart={req_preview!r}"
+        )
+        response = session.post(
             RCLICK_BOOKING_URL,
-            cookies={"rClick_token": token},
             files=multipart,
             timeout=30
         )
