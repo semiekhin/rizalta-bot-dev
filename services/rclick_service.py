@@ -158,7 +158,8 @@ def create_booking(
             },
             timeout=30
         )
-        
+
+        print(f"[RCLICK] status={response.status_code} len={len(response.content)} ct={response.headers.get('content-type')} body={response.text[:500]!r}")
         data = response.json()
         
         if data.get("success") == 1 and data.get("status") == 1:
