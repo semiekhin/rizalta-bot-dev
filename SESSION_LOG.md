@@ -1,5 +1,30 @@
 # SESSION_LOG — Последние сессии
 
+## 30.04.2026 — Лот В717 в custom installment + фиксация ручных PROD-правок в git
+
+**Сделано:**
+- **Разведка В317/В307:** парсер на PROD отработал штатно (mtime 03:00, 451 запись, лог без ошибок). В307 уже снят парсером — на ri.rclick.ru его нет. В317 остался `available` — рассинхрон между внутренней CRM застройщика и публичным каталогом ri.rclick.ru (гипотеза «b»).
+- **DEV:** добавлен `'В717'` в `CUSTOM_INSTALLMENT_UNITS` (коммит `be1469d`). Точечный INSERT записи В717 в `properties.db` из PROD — DEV-парсер закомментирован в cron, БД отставала с 11.04. Бэкап `properties.db.bak.20260430-111725`. Рестарт `rizalta-bot-dev` ✓.
+- **PROD:** В717 добавлен через sed (точечная замена `'В625']` → `'В625', 'В717']`), бэкап `kp_pdf_generator.py.bak.20260430-112929`. Рестарт `rizalta-bot` ✓, в логах сразу прошла генерация КП по В717 в новом сценарии.
+- **Аудит /opt/bot:** найдено 5 modified + 1 untracked в working tree — хвосты ручных деплоев. Все диффы прочитаны и квалифицированы.
+- **Коммиты в /opt/bot (4 шт):**
+  - `353e898 fix(rclick)` — RCLICK-фикс 20.04 (rclick_service, booking_fixation, send_rclick_update_notification)
+  - `0c6eed5 feat(watchdog)` — мониторинг rizalta-bot-max (health_check, watchdog/config)
+  - `ec87671 feat: В717` — синхронизация PROD-кода с DEV-коммитом `be1469d`
+  - `62a5a90 fix(units_db)` — снят `AND status='available'` в 3 SQL-запросах (осознанно, готовимся к статусу 'бронь')
+- **Push:** `bc6666f..62a5a90 main -> main` в `git@github.com:semiekhin/rizalta-bot.git` ✓
+
+**Файлы:** services/kp_pdf_generator.py (DEV+PROD), properties.db (DEV INSERT). На PROD дополнительно: services/rclick_service.py, handlers/booking_fixation.py, send_rclick_update_notification.py, health_check.sh, services/watchdog/config.py, services/units_db.py.
+
+**Незакрытое (для следующей сессии):**
+- `/opt/bot/services/kp_pdf_generator.py.bak.20260430-112929` и `/opt/bot-dev/properties.db.bak.20260430-111725` — cp-бэкапы остались untracked. После стабильного периода унести в `/var/backups/` или удалить.
+- В317 на ri.rclick.ru — попросить застройщика/менеджеров обновить статус в их CRM, чтобы парсер увидел и снял лот штатно.
+- DEV-парсер закомментирован → DEV БД отстаёт от PROD на 19+ дней. Не критично, известное состояние, при необходимости — раскомментировать cron `/opt/bot-dev` 06:00.
+
+**Версия:** 2.7.2
+
+---
+
 ## 20.04.2026 — Фикс фиксации через RCLICK + авто-релогин с зашифрованным паролем (деплой в PROD)
 
 **Проблема:** с ~17:12 MSK все фиксации через ri.rclick.ru падали с криптичным "Ошибка подключения: Expecting value: line 1 column 1 (char 0)". RCLICK начал возвращать HTTP 500 с пустым телом на `POST /notice/newbooking/`.
@@ -57,20 +82,6 @@
 **Файлы:** CLAUDE.md, CLAUDE_OLD.md, SESSION_LOG.md, BACKLOG.md
 
 **Найденный баг:** `services/calc_universal.py:137` — `CUSTOM_INSTALLMENT_UNITS` проверяется без `building==1` (пропущен при фиксе 01.03)
-
-**Версия:** 2.7.2
-
----
-
-## 24.03.2026 — Cleanup v2.7.2: А101, base64, 380px, units_db, Claude Code
-
-**Сделано:**
-- Закоммичены незакоммиченные изменения kp_pdf_generator.py (download_layout base64, убран А101)
-- Вернута ширина планировки 380px (была 220px для сводного КП)
-- Откат units_db.py: status=available вернён в get_lot_by_code()
-- Claude Code подключён к проекту (CLAUDE.md создан)
-
-**Файлы:** services/kp_pdf_generator.py, services/units_db.py
 
 **Версия:** 2.7.2
 
