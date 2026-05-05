@@ -27,6 +27,7 @@ _(пусто)_
 ## P3 — Техдолг / Nice-to-have
 
 - [ ] **Уборка cp-бэкапов от 30.04** — `/opt/bot/services/kp_pdf_generator.py.bak.20260430-112929` и `/opt/bot-dev/properties.db.bak.20260430-111725`. Унести в `/var/backups/` или удалить после стабильного периода.
+- [ ] **Уборка артефактов сессии 05.05 в `/opt/bot-dev/scripts/`** — `КП_К3_2этаж_36лотов.pdf` (старая негодная версия), `test_single_kp_А200.pdf`, `kp_resources_copy/` (дубликат `services/kp_resources/`). Сам `generate_floor_kp.py` оставить как шаблон для повторных one-shot-сводных КП на любой этаж/корпус (параметры — `BUILDING`/`FLOOR` в начале файла).
 - [ ] **Удалить legacy код** — kp_generator.py, rizalta_v2/
 - [ ] **Парсер UPSERT** — заменить DELETE+INSERT на UPSERT (parser_rclick.py)
 - [ ] **Redis кеширование** — при 500+ пользователей

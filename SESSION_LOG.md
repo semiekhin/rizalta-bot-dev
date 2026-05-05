@@ -1,5 +1,45 @@
 # SESSION_LOG — Последние сессии
 
+## 05.05.2026 — Ставки траншевой ипотеки (DEV+PROD) + сводное КП на этаж К3-2 (one-shot)
+
+**Сделано:**
+
+**1) Обновление ставок траншевой ипотеки Сбербанк** (только 4 числа в `data/tranche_mortgage_config.json`, поля `pct`/`tranche_amounts`/`term_months`/`tranche_period_months` не тронуты):
+- 20.1: 21.7 → **21.2**
+- 30.1: 21.2 → **19.7**
+- 40.1: 21.2 → **19.7**
+- 50.1: 19.2 → **19.0**
+- DEV-коммит `ae9a280`, рестарт `rizalta-bot-dev` ✓
+- PROD: бэкап `data/tranche_mortgage_config.json.bak.20260505-072028`, коммит `5d9728c` в `git@github.com:semiekhin/rizalta-bot.git`, рестарт `rizalta-bot` ✓
+
+**2) Сводное КП на этаж — one-shot для К3, 2 этаж (36 лотов):**
+- Источник: PROD-БД через `sqlite3.connect("file:/opt/bot/properties.db?mode=ro", uri=True)` (read-only URI)
+- Сравнение DEV vs PROD по К3-2 — наборы кодов идентичны (36 лотов, 1138.6 м², 751 009 500 ₽). DEV-парсер не запускается с 30.04, известное состояние.
+- Готовый PDF: `/tmp/КП_К3_2этаж_сводное.pdf` (2.1 МБ, 7 страниц A4 portrait, копия в `/opt/bot-dev/scripts/`)
+- Стиль матчит `services/kp_pdf_generator.py`: тёмно-зелёная шапка #313D20 + золотая плашка #DCB764 + белые карточки на светлом фоне #F6F0E3, шрифт Montserrat (base64 из `services/kp_resources/`)
+- Layout: HTML-`<table>` + `float` (НЕ CSS Grid — wkhtmltopdf 0.12.6/Qt 5.15.13 рендерит каждый ряд Grid на отдельной странице, у первой версии получилось 13 страниц вместо 7)
+- Скрипт `/opt/bot-dev/scripts/generate_floor_kp.py` — **untracked, временный**, не закоммичен. Виртуальные лоты в БД не вставлялись.
+
+**3) Диагностика памяти PROD** (по запросу): RAM 7.8G total / used 2.3G / available 5.5G; swap 311M; load 0.12; OOM в dmesg/journal — пусто; диск 36% used. Норма.
+
+**Файлы (committed):** `data/tranche_mortgage_config.json` (DEV+PROD).
+
+**Untracked в DEV (артефакты сессии):**
+- `scripts/generate_floor_kp.py` — one-shot скрипт сводного КП
+- `scripts/КП_К3_2этаж_сводное.pdf` — финальный результат
+- `scripts/КП_К3_2этаж_36лотов.pdf` — старая версия (CSS Grid, 13 страниц, негодная)
+- `scripts/test_single_kp_А200.pdf` — эталон одиночного КП для сравнения стиля
+- `scripts/kp_resources_copy/` — копия ресурсов для выгрузки на Mac
+- `properties.db.bak.20260430-111725` — с прошлой сессии (P3 в backlog)
+
+**Уроки:**
+- Для wkhtmltopdf 0.12.6 + Qt 5.15.13: **CSS Grid не использовать**, только `<table>` + `float` + `overflow:hidden` для очистки. Эталон вёрстки — `services/kp_pdf_generator.py`.
+- Перед генерацией одноразовых артефактов сверять `building`/`floor` в DEV vs PROD — DEV-парсер закомментирован, PROD-БД авторитетна.
+
+**Версия:** 2.7.2
+
+---
+
 ## 30.04.2026 — Лот В717 в custom installment + фиксация ручных PROD-правок в git
 
 **Сделано:**
